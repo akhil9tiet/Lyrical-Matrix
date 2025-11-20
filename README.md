@@ -57,3 +57,6 @@ akhilgupta.swe@gmail.com
 This video explores the psychology and appeal of lyrical repetition in popular music.
 
 🛠️ This type of visual was originally created by [Colin Morris](https://github.com/colinmorris), who developed tools to analyze and graph song lyrics.
+
+Nifty tool to play with lyrics
+https://colinmorris.github.io/SongSim/#/cheapthrills
