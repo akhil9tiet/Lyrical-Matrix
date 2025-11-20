@@ -1,0 +1,5 @@
+{
+  "name": "Lyrical Heatmap",
+  "description": "Visualizes the frequency of words in song lyrics using a heatmap.",
+  "requestFramePermissions": []
+}
