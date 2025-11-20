@@ -1,4 +1,3 @@
-![Hey Jude-lyrical-matrix](https://github.com/user-attachments/assets/432d998a-47e4-4d6f-855c-7ee6cea3eb8e)<div align="center">
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
@@ -29,3 +28,14 @@ View your app in AI Studio: https://ai.studio/apps/drive/1FSdln3OcZgxbR9wGnHlDBb
 ![Crazy in Love-lyrical-matrix](https://github.com/user-attachments/assets/cda94ac8-a196-4439-9a65-6d0e141da00e)
 ![Uptown funk-lyrical-matrix](https://github.com/user-attachments/assets/6fe744f7-bcf4-4f9e-b3a6-cda3ccbc14bc)
 ![Blinding Lights-lyrical-matrix](https://github.com/user-attachments/assets/e0e35080-8882-43c5-a676-603befbb5afd)
+
+
+# Created By
+Akhil Gupta
+akhilgupta.swe@gmail.com
+
+## Reference
+🎥 [Why We Really Really Really Like Repetition in Music](https://www.youtube.com/watch?v=HzzmqUoQobc&t=30s)  
+This video explores the psychology and appeal of lyrical repetition in popular music.
+
+🛠️ This type of visual was originally created by [Colin Morris](https://github.com/colinmorris), who developed tools to analyze and graph song lyrics.
