@@ -52,13 +52,6 @@ View your app in AI Studio: https://ai.studio/apps/drive/1FSdln3OcZgxbR9wGnHlDBb
   <img src="https://github.com/user-attachments/assets/5f190f18-d443-4a77-a824-8a4e5450fc5a" alt="Yellow-lyrical-matrix" width="200"/>
 </div>
 
-![Summertime sadness-lyrical-matrix](https://github.com/user-attachments/assets/7aac3f6b-e4e6-4bfb-9c86-293e871420db)
-![Still D R E-lyrical-matrix](https://github.com/user-attachments/assets/50b27ef8-44a2-4060-a068-1964c8d53109)
-![Lose yourself-lyrical-matrix](https://github.com/user-attachments/assets/347139d8-5852-43f6-8283-c3ebbd3139e0)
-![Viva la Vida-lyrical-matrix](https://github.com/user-attachments/assets/952c96e7-c19a-4f05-b347-0c4ff2d9a4d3)
-![Fix you-lyrical-matrix](https://github.com/user-attachments/assets/528ab3f5-1832-4d2a-bb35-dc96069739a0)
-![Yellow-lyrical-matrix](https://github.com/user-attachments/assets/5f190f18-d443-4a77-a824-8a4e5450fc5a)
-
 
 # Created By
 Akhil Gupta
