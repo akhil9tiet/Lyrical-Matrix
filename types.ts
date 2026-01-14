@@ -1,3 +1,4 @@
+
 export interface WordFrequency {
   word: string;
   count: number;
@@ -12,10 +13,13 @@ export interface SongDetails {
 export interface LyricsResult {
   lyrics: string;
   wordData: WordFrequency[];
-  sequence: string[]; // Ordered list of words after filtering
+  sequence: string[]; // Ordered list of words
+  totalWordCount: number; // Total count
   coverArt?: string;
   songName?: string;
   artistName?: string;
+  releaseYear?: string;
+  previewUrl?: string;
 }
 
 export enum AppState {

@@ -1,37 +1,56 @@
+
 import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
 import SearchForm from './components/SearchForm';
 import Heatmap from './components/Heatmap';
-import { fetchLyrics } from './services/geminiService';
+import { getLyricsWithFallback } from './services/lyricsService';
+import { fetchSongMetadata } from './services/itunesService';
 import { analyzeText } from './utils/textAnalyzer';
 import { AppState, LyricsResult, SongDetails } from './types';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
+  const [loadingMsg, setLoadingMsg] = useState<string>('');
   const [result, setResult] = useState<LyricsResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   const handleSearch = useCallback(async (details: SongDetails) => {
     setAppState(AppState.LOADING);
+    setLoadingMsg('Initiating song analysis...');
     setErrorMsg('');
     setResult(null);
 
     try {
-      const { lyrics, coverArt } = await fetchLyrics(details.songName, details.artistName);
-      const { wordData, sequence } = analyzeText(lyrics);
+      // 1. Fetch Metadata (iTunes)
+      setLoadingMsg('Fetching track metadata...');
+      const itunesData = await fetchSongMetadata(details.songName, details.artistName);
+
+      // 2. Fetch Lyrics with Fallback
+      const lyricsResponse = await getLyricsWithFallback(
+        details.songName, 
+        details.artistName, 
+        (status) => setLoadingMsg(status)
+      );
+
+      // 3. Analyze
+      setLoadingMsg('Generating repetition matrix...');
+      const { wordData, sequence, totalWordCount } = analyzeText(lyricsResponse.lyrics);
       
       setResult({
-        lyrics,
+        lyrics: lyricsResponse.lyrics,
         wordData,
         sequence,
-        coverArt,
-        songName: details.songName,
-        artistName: details.artistName
+        totalWordCount,
+        coverArt: itunesData.artworkUrl || lyricsResponse.coverArt,
+        songName: itunesData.trackName || details.songName,
+        artistName: itunesData.artistName || details.artistName,
+        releaseYear: itunesData.releaseYear,
+        previewUrl: itunesData.previewUrl
       });
       setAppState(AppState.SUCCESS);
     } catch (error: any) {
       setAppState(AppState.ERROR);
-      setErrorMsg(error.message || "Failed to load lyrics. Please try again.");
+      setErrorMsg(error.message || "Something went wrong. Please try another song.");
     }
   }, []);
 
@@ -41,43 +60,35 @@ const App: React.FC = () => {
       
       <SearchForm onSearch={handleSearch} isLoading={appState === AppState.LOADING} />
 
-      <main className="flex-1 w-full max-w-6xl mx-auto">
+      <main className="flex-1 w-full max-w-4xl mx-auto flex flex-col items-center">
+        {appState === AppState.LOADING && (
+          <div className="flex flex-col items-center gap-6 mt-12 animate-pulse">
+            <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="clay-card px-8 py-4 text-slate-600 font-bold tracking-tight text-center">
+              {loadingMsg}
+            </div>
+          </div>
+        )}
+
         {appState === AppState.ERROR && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl border border-red-200 text-center mb-8 shadow-sm">
+          <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 text-center mb-8 shadow-sm font-black uppercase tracking-tight max-w-md">
             {errorMsg}
           </div>
         )}
 
         {appState === AppState.SUCCESS && result && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in-up">
-            {/* Heatmap Section */}
-            <section className="flex flex-col gap-4 order-1 lg:order-1">
-              <div className="flex items-center justify-between px-4">
-                 <h2 className="text-xl font-bold text-slate-700">Repetition Matrix</h2>
-                 <span className="text-xs font-medium px-2 py-1 bg-slate-200 text-slate-600 rounded-lg">
-                    {result.sequence.length} words
-                 </span>
-              </div>
-              <Heatmap 
-                sequence={result.sequence} 
-                wordData={result.wordData} 
-                coverArt={result.coverArt}
-                songName={result.songName}
-                artistName={result.artistName}
-              />
-            </section>
-
-            {/* Original Lyrics Section */}
-            <section className="flex flex-col gap-4 order-2 lg:order-2">
-               <div className="px-4">
-                  <h2 className="text-xl font-bold text-slate-700">Lyrics Source</h2>
-               </div>
-              <div className="clay-card p-6 h-[600px] md:h-[780px] flex flex-col">
-                <div className="clay-inset p-6 h-full overflow-y-auto text-slate-600 leading-relaxed whitespace-pre-wrap font-mono text-sm">
-                  {result.lyrics}
-                </div>
-              </div>
-            </section>
+          <div className="w-full animate-reveal-card">
+            <Heatmap 
+              sequence={result.sequence} 
+              wordData={result.wordData} 
+              totalWordCount={result.totalWordCount}
+              lyrics={result.lyrics}
+              coverArt={result.coverArt}
+              songName={result.songName}
+              artistName={result.artistName}
+              releaseYear={result.releaseYear}
+              previewUrl={result.previewUrl}
+            />
           </div>
         )}
       </main>

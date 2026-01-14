@@ -1,82 +1,74 @@
+
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.API_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey || '' });
-
 export const fetchLyrics = async (song: string, artist: string): Promise<{ lyrics: string, coverArt?: string }> => {
-  if (!apiKey) {
-    throw new Error("API Key is missing in environment variables.");
-  }
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // Construct a natural language query
   const songDetail = artist.trim() ? `"${song}" by "${artist}"` : `"${song}"`;
 
   const prompt = `
-    Find the lyrics for the song ${songDetail}. 
-    Also search for the official album cover art URL for this song.
+    Find the full lyrics for the song ${songDetail}. 
+    Search for the lyrics and provide them clearly.
+    Also find the official album cover art image URL.
 
     Output format:
-    1. Start with "LYRICS_START"
-    2. Print the lyrics text (no markdown, no extra headers)
-    3. End lyrics with "LYRICS_END"
-    4. On a new line, print "IMAGE_URL: " followed by the direct URL to the album cover image.
+    LYRICS_START
+    [Insert lyrics here]
+    LYRICS_END
+    IMAGE_URL: [Insert URL here]
     
-    If you cannot find an image, do not print the IMAGE_URL line.
-    If the song is instrumental, print "[Instrumental]" as the lyrics.
+    If the song is instrumental, the lyrics should be "[Instrumental]".
+    Ensure the output contains both the lyrics block and the image URL if available.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+      model: 'gemini-3-flash-preview',
+      contents: [{ parts: [{ text: prompt }] }],
       config: {
-        tools: [{ googleSearch: {} }], // Enable search to find the album cover
+        tools: [{ googleSearch: {} }],
+        temperature: 0.7,
       }
     });
 
-    let text = response.text;
-
+    const text = response.text;
     if (!text) {
-        throw new Error("No content generated.");
-    }
-
-    // Parse the response
-    let lyrics = "";
-    let coverArt = undefined;
-
-    // Extract Lyrics
-    const lyricsMatch = text.match(/LYRICS_START([\s\S]*?)LYRICS_END/);
-    if (lyricsMatch && lyricsMatch[1]) {
-        lyrics = lyricsMatch[1].trim();
-    } else {
-        // Fallback if strict format fails, just take the whole text if it looks like lyrics
-        // But remove the IMAGE_URL line if it exists
-        lyrics = text.replace(/IMAGE_URL:.*$/, '').trim();
-    }
-
-    // Extract Image URL
-    const imageMatch = text.match(/IMAGE_URL:\s*(https?:\/\/[^\s]+)/);
-    if (imageMatch && imageMatch[1]) {
-        coverArt = imageMatch[1];
-    }
-
-    // Clean up common markdown artifacts
-    lyrics = lyrics.replace(/^```(text|markdown)?\n?/i, '').replace(/```$/, '').trim();
-
-    // Validation
-    if (!lyrics || (lyrics.length < 20 && !lyrics.toLowerCase().includes('instrumental'))) {
-      if (text && (text.includes("cannot") || text.includes("unable to"))) {
-         throw new Error("Lyrics restricted by AI safety filters.");
+      console.warn("Gemini returned empty text, checking candidates...");
+      if (response.candidates && response.candidates.length > 0) {
+        // Sometimes the text getter might fail if parts are weirdly structured
+        const partText = response.candidates[0].content.parts.find(p => p.text)?.text;
+        if (!partText) throw new Error("No content generated in any part.");
+        return processResponse(partText);
       }
-      throw new Error("Lyrics not found for this song.");
+      throw new Error("No content generated.");
     }
 
-    return { lyrics, coverArt };
+    return processResponse(text);
   } catch (error) {
-    console.error("Error fetching lyrics:", error);
-    if (error instanceof Error) {
-       throw error;
-    }
-    throw new Error("Failed to fetch lyrics.");
+    console.error("Gemini service error:", error);
+    throw error;
   }
 };
+
+function processResponse(text: string): { lyrics: string, coverArt?: string } {
+  let lyrics = "";
+  let coverArt = undefined;
+
+  const lyricsMatch = text.match(/LYRICS_START([\s\S]*?)LYRICS_END/);
+  if (lyricsMatch && lyricsMatch[1]) {
+    lyrics = lyricsMatch[1].trim();
+  } else {
+    // Fallback parsing if formatting tags were ignored
+    lyrics = text.replace(/IMAGE_URL:.*$/i, '').replace(/LYRICS_START|LYRICS_END/gi, '').trim();
+  }
+
+  const imageMatch = text.match(/IMAGE_URL:\s*(https?:\/\/[^\s]+)/i);
+  if (imageMatch && imageMatch[1]) {
+    coverArt = imageMatch[1];
+  }
+
+  // Final cleanup
+  lyrics = lyrics.replace(/^```(text|markdown)?\n?/i, '').replace(/```$/, '').trim();
+
+  return { lyrics, coverArt };
+}
