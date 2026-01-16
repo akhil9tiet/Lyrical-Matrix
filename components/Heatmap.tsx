@@ -18,7 +18,8 @@ interface HeatmapProps {
   previewUrl?: string;
 }
 
-const POINT_RADIUS = 1.25;
+const POINT_RADIUS = 1.35;
+const BASE_SCALE = 0.35; // Size of points before the wave hits
 
 const Heatmap: React.FC<HeatmapProps> = ({ 
   sequence, 
@@ -133,7 +134,7 @@ const Heatmap: React.FC<HeatmapProps> = ({
 
     const draw = (time: number) => {
       if (!start) start = time;
-      const loadDuration = 2200; 
+      const loadDuration = 2500; 
       const loadProgress = Math.min((time - start) / loadDuration, 1);
 
       // 1. AUDIO REACTIVITY
@@ -171,12 +172,11 @@ const Heatmap: React.FC<HeatmapProps> = ({
       ctx.save();
       ctx.translate(padding, padding);
 
-      // Glitch translation
       if (effectiveIntensity > 1.1) {
         ctx.translate((Math.random() - 0.5) * 6 * effectiveIntensity, (Math.random() - 0.5) * 6 * effectiveIntensity);
       }
 
-      // 3. AMBIENT GLOW (Halation)
+      // 3. AMBIENT HALATION (Pulsing Background)
       if ((isPlaying || isInitialGlitch) && effectiveIntensity > 0.05) {
         ctx.globalCompositeOperation = 'screen';
         const haloSize = innerSize * (0.45 + effectiveIntensity * 0.7);
@@ -193,99 +193,84 @@ const Heatmap: React.FC<HeatmapProps> = ({
         ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
       }
 
-      const loadThreshold = loadProgress * 1.6;
+      const wavePos = loadProgress * 1.6; // The current position of the growth wave
       const scaledPoints = scaledPointsRef.current;
 
-      // 4. CHROMATIC LAYER (Smooth Circles)
-      if ((isPlaying || loadProgress < 0.5) && effectiveIntensity > 0.4) {
-        ctx.globalCompositeOperation = 'screen';
-        const offset = effectiveIntensity * 8;
-        
-        // Red Shift
-        ctx.fillStyle = `rgba(255, 34, 34, ${0.6 * effectiveIntensity})`;
-        const pathR = new Path2D();
-        for (const p of scaledPoints) {
-          if (p.revealIdx > loadThreshold) continue;
-          pathR.moveTo(p.x - offset + POINT_RADIUS, p.y);
-          pathR.arc(p.x - offset, p.y, POINT_RADIUS, 0, Math.PI * 2);
-        }
-        ctx.fill(pathR);
-
-        // Blue Shift
-        ctx.fillStyle = `rgba(34, 34, 255, ${0.6 * effectiveIntensity})`;
-        const pathB = new Path2D();
-        for (const p of scaledPoints) {
-          if (p.revealIdx > loadThreshold) continue;
-          pathB.moveTo(p.x + offset + POINT_RADIUS, p.y);
-          pathB.arc(p.x + offset, p.y, POINT_RADIUS, 0, Math.PI * 2);
-        }
-        ctx.fill(pathB);
-      }
-
-      // 5. MAIN MATRIX LAYER (Circular points)
+      // 4. MAIN MATRIX LAYER (POPULATED FROM START)
       ctx.globalCompositeOperation = 'screen';
-      ctx.shadowBlur = 5;
       
       const batches = new Map<string, Path2D>();
       for (const p of scaledPoints) {
-        if (p.revealIdx > loadThreshold) continue;
+        // Calculate point growth based on wave proximity
+        // revealIdx is (p.x + p.y) / (2 * n)
+        const dist = wavePos - p.revealIdx;
         
+        // Growth curve: starts at BASE_SCALE, pops up, then settles at 1.0
+        let scale = BASE_SCALE;
+        let pointAlpha = 0.35; // Lower opacity for pre-populated state
+        
+        if (dist > 0) {
+          // Point is passed by wave
+          if (dist < 0.2) {
+            // Wave is currently hitting: scale "pops" up to 1.5 then settles
+            const popAmount = Math.sin((dist / 0.2) * Math.PI);
+            scale = BASE_SCALE + (1.0 - BASE_SCALE) * (dist / 0.2) + popAmount * 0.4;
+            pointAlpha = 0.35 + 0.65 * (dist / 0.2);
+          } else {
+            // Wave has passed
+            scale = 1.0;
+            pointAlpha = 1.0;
+          }
+        }
+
+        const currentRadius = POINT_RADIUS * scale;
         let x = p.x;
         let y = p.y;
         
-        // Glitch jitter
-        const distToWipe = Math.abs(p.revealIdx - loadThreshold);
-        if ((distToWipe < 0.08 || effectiveIntensity > 1.1) && Math.random() > 0.95) {
-          x += (Math.random() - 0.5) * 40 * effectiveIntensity;
+        // Jitter glitch
+        if (intensity > 1.1 && Math.random() > 0.95) {
+          x += (Math.random() - 0.5) * 40 * intensity;
         }
 
         if (!batches.has(p.color)) batches.set(p.color, new Path2D());
         const path = batches.get(p.color)!;
-        path.moveTo(x + POINT_RADIUS, y);
-        path.arc(x, y, POINT_RADIUS, 0, Math.PI * 2);
+        path.moveTo(x + currentRadius, y);
+        path.arc(x, y, currentRadius, 0, Math.PI * 2);
       }
 
+      ctx.shadowBlur = 5;
       batches.forEach((path, color) => {
         ctx.fillStyle = color;
         ctx.shadowColor = color;
+        // Apply varying alpha if we want even more contrast, but batches share color.
+        // For simplicity, we stick to the vibrant batching.
         ctx.fill(path);
       });
       ctx.shadowBlur = 0;
 
-      // 6. BLOOM WIPE (Glow Blade)
+      // 5. THE SCALE-UP GLOW (Directional Wipe Overlay)
       if (loadProgress < 1) {
         ctx.save();
-        ctx.filter = 'blur(45px)'; // Soften the glare
+        ctx.filter = 'blur(50px)';
         ctx.globalCompositeOperation = 'lighter';
         
-        const currentY = loadProgress * innerSize;
-        const bladeHeight = 200;
-        const bKey = `b-${Math.floor(currentY/5)}`;
-        const bladeGrad = getOrCreateGradient(bKey, () => {
-          const grad = ctx.createLinearGradient(0, currentY - bladeHeight/2, 0, currentY + bladeHeight/2);
-          grad.addColorStop(0, 'rgba(99, 102, 241, 0)');
-          grad.addColorStop(0.5, `rgba(255, 255, 255, ${0.75 * (1 - loadProgress)})`);
-          grad.addColorStop(1, 'rgba(99, 102, 241, 0)');
-          return grad;
-        });
+        const wipeW = 150;
+        const diagPos = loadProgress * innerSize * 2; // Diagonal travel
+        
+        // Create a directional glare that follows the wave edge
+        const bladeGrad = ctx.createLinearGradient(0, 0, innerSize, innerSize);
+        const s1 = Math.max(0, loadProgress - 0.1);
+        const s2 = Math.min(1, loadProgress + 0.1);
+        bladeGrad.addColorStop(s1, 'rgba(255, 255, 255, 0)');
+        bladeGrad.addColorStop(loadProgress, `rgba(255, 255, 255, ${0.8 * (1 - loadProgress)})`);
+        bladeGrad.addColorStop(s2, 'rgba(255, 255, 255, 0)');
+        
         ctx.fillStyle = bladeGrad;
-        ctx.fillRect(0, 0, innerSize, innerSize);
-
-        // Clip the blade reveal
-        ctx.globalCompositeOperation = 'destination-in';
-        const wipePos = loadProgress * 1.6;
-        const s1 = Math.max(0, wipePos - 0.28);
-        const s2 = Math.min(1, wipePos + 0.12);
-        const maskGrad = ctx.createLinearGradient(0, 0, innerSize, innerSize);
-        maskGrad.addColorStop(s1, 'rgba(0,0,0,0)');
-        maskGrad.addColorStop(wipePos, 'rgba(0,0,0,1)');
-        maskGrad.addColorStop(s2, 'rgba(0,0,0,0)');
-        ctx.fillStyle = maskGrad;
         ctx.fillRect(0, 0, innerSize, innerSize);
         ctx.restore();
       }
 
-      // 7. PLAYBACK BLOOM
+      // 6. PLAYBACK BEAT BLOOM
       if (isPlaying && intensity > 0.1) {
         ctx.globalCompositeOperation = 'screen';
         const bloomSize = innerSize * (0.6 + intensity * 0.55);
@@ -298,10 +283,9 @@ const Heatmap: React.FC<HeatmapProps> = ({
         ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
       }
 
-      // 8. FINAL VIGNETTE & TEXTURE
+      // 7. VIGNETTE OVERLAY
       ctx.globalCompositeOperation = 'multiply';
-      const vKey = 'vignette';
-      const screenTexture = getOrCreateGradient(vKey, () => {
+      const screenTexture = getOrCreateGradient('vignette', () => {
         const grad = ctx.createRadialGradient(innerSize/2, innerSize/2, 0, innerSize/2, innerSize/2, innerSize * 0.9);
         grad.addColorStop(0, 'rgba(255,255,255,1)');
         grad.addColorStop(1, 'rgba(180,180,255,0.75)');
@@ -395,7 +379,7 @@ const Heatmap: React.FC<HeatmapProps> = ({
           <div className="flex flex-row justify-between items-end gap-4 relative z-10">
               <div className="flex flex-col gap-2 flex-1">
                   <div className="flex flex-col items-start gap-1">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Repetition Matrix (Neon Reveal)</div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Lyrical Density Wave</div>
                       <div className="flex items-center gap-2 w-full max-w-[200px]">
                           <span className="text-[10px] text-slate-400 font-bold tracking-tighter">RARE</span>
                           <div className="flex-1 h-2 rounded-full border border-white/20" style={{ background: `linear-gradient(to right, ${HEATMAP_COLORS.join(', ')})` }}></div>

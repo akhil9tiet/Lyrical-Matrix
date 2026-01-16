@@ -3,7 +3,7 @@ import React, { useState, useCallback } from 'react';
 import Header from './components/Header';
 import SearchForm from './components/SearchForm';
 import Heatmap from './components/Heatmap';
-import { getLyricsWithFallback } from './services/lyricsService';
+import { getLyrics } from './services/lyricsService';
 import { fetchSongMetadata } from './services/itunesService';
 import { analyzeText } from './utils/textAnalyzer';
 import { AppState, LyricsResult, SongDetails } from './types';
@@ -21,14 +21,18 @@ const App: React.FC = () => {
     setResult(null);
 
     try {
-      // 1. Fetch Metadata (iTunes)
+      // 1. Fetch Metadata (iTunes) - Essential for validated names, artwork, and preview
       setLoadingMsg('Fetching track metadata...');
       const itunesData = await fetchSongMetadata(details.songName, details.artistName);
 
-      // 2. Fetch Lyrics with Fallback
-      const lyricsResponse = await getLyricsWithFallback(
-        details.songName, 
-        details.artistName, 
+      // 2. Fetch Lyrics Directly
+      // We use itunesData names if available for better API match accuracy
+      const finalSongName = itunesData.trackName || details.songName;
+      const finalArtistName = itunesData.artistName || details.artistName;
+
+      const lyricsResponse = await getLyrics(
+        finalSongName, 
+        finalArtistName, 
         (status) => setLoadingMsg(status)
       );
 
@@ -41,9 +45,9 @@ const App: React.FC = () => {
         wordData,
         sequence,
         totalWordCount,
-        coverArt: itunesData.artworkUrl || lyricsResponse.coverArt,
-        songName: itunesData.trackName || details.songName,
-        artistName: itunesData.artistName || details.artistName,
+        coverArt: itunesData.artworkUrl,
+        songName: finalSongName,
+        artistName: finalArtistName,
         releaseYear: itunesData.releaseYear,
         previewUrl: itunesData.previewUrl
       });

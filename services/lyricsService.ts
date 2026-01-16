@@ -1,47 +1,50 @@
 
-import { fetchLyrics as fetchGeminiLyrics } from './geminiService';
-
 export interface LyricsResponse {
   lyrics: string;
-  coverArt?: string;
-  source: 'llm' | 'fallback';
+  source: 'api';
 }
 
-export const getLyricsWithFallback = async (
+/**
+ * Fetches lyrics directly from the lyrics.ovh API.
+ * This replaces the previous multi-stage fallback logic that included LLM calls.
+ */
+export const getLyrics = async (
   song: string, 
   artist: string, 
   onStatus: (msg: string) => void
 ): Promise<LyricsResponse> => {
-  onStatus("Searching LLM for lyrics and artwork...");
+  onStatus("Fetching lyrics from database...");
+  
+  const artistParam = encodeURIComponent(artist || 'unknown');
+  const songParam = encodeURIComponent(song);
+  
+  // Use lyrics.ovh as the direct source
+  const url = `https://api.lyrics.ovh/v1/${artistParam}/${songParam}`;
   
   try {
-    const geminiResult = await fetchGeminiLyrics(song, artist);
-    if (geminiResult && geminiResult.lyrics && geminiResult.lyrics.length > 50) {
-      return { ...geminiResult, source: 'llm' };
-    }
-    throw new Error("Lyrics too short or not found");
-  } catch (err) {
-    onStatus("LLM couldn't find lyrics, trying backup source...");
+    const response = await fetch(url);
     
-    // Fallback to lyrics.ovh
-    const artistParam = encodeURIComponent(artist || 'unknown');
-    const songParam = encodeURIComponent(song);
-    const ovhUrl = `https://api.lyrics.ovh/v1/${artistParam}/${songParam}`;
-    
-    try {
-      const response = await fetch(ovhUrl);
-      if (!response.ok) throw new Error("Fallback failed");
-      
-      const data = await response.json();
-      if (data.lyrics) {
-        return {
-          lyrics: data.lyrics,
-          source: 'fallback'
-        };
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(`Lyrics for "${song}" not found. Try adding/correcting the artist name.`);
       }
-      throw new Error("No lyrics in fallback response");
-    } catch (fallbackErr) {
-      throw new Error("Lyrics could not be found in any of our sources.");
+      throw new Error("Lyrics service is currently unavailable.");
     }
+    
+    const data = await response.json();
+    
+    if (data.lyrics) {
+      // Basic cleanup for the common "Paroles de la chanson..." prefix in some results
+      let cleanLyrics = data.lyrics.trim();
+      return {
+        lyrics: cleanLyrics,
+        source: 'api'
+      };
+    }
+    
+    throw new Error("No lyrics found for this track.");
+  } catch (err: any) {
+    console.error("Lyrics Service Error:", err);
+    throw new Error(err.message || "Failed to retrieve lyrics.");
   }
 };
