@@ -1,17 +1,26 @@
 
 import { WordFrequency } from '../types';
 
-export const analyzeText = (text: string): { wordData: WordFrequency[], sequence: string[], totalWordCount: number } => {
-  if (!text) return { wordData: [], sequence: [], totalWordCount: 0 };
+/**
+ * Common English stop words to filter out for cleaner visualization
+ */
+const STOP_WORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 
+  'is', 'are', 'was', 'were', 'of', 'i', 'you', 'it', 'me', 'my', 'that', 'this',
+  'be', 'am', 'so', 'if', 'as', 'by'
+]);
 
-  // 1. Get raw word count for statistics
+export const analyzeText = (text: string): { wordData: WordFrequency[], sequence: string[], totalWordCount: number } => {
+  if (!text || text === "[Instrumental]") return { wordData: [], sequence: [], totalWordCount: 0 };
+
+  // 1. Get raw word count for statistics (before filtering)
   const rawWords = text.trim().split(/\s+/).filter(w => w.length > 0);
   const totalWordCount = rawWords.length;
 
   // 2. Normalize: lowercase and remove punctuation except internal apostrophes
   const cleanText = text.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ');
 
-  // 3. Process all words without filtering stop words
+  // 3. Process words and filter common stop words
   const words = cleanText.split(/\s+/).filter(w => w.trim().length > 0);
   const counts: Record<string, number> = {};
   const sequence: string[] = [];
@@ -20,7 +29,8 @@ export const analyzeText = (text: string): { wordData: WordFrequency[], sequence
   words.forEach(word => {
     // Trim leading/trailing apostrophes from the word itself
     const sanitized = word.replace(/^'+|'+$/g, '');
-    if (sanitized) {
+    
+    if (sanitized && !STOP_WORDS.has(sanitized)) {
       sequence.push(sanitized);
       counts[sanitized] = (counts[sanitized] || 0) + 1;
       if (counts[sanitized] > maxCount) maxCount = counts[sanitized];

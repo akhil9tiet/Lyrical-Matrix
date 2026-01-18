@@ -1,10 +1,9 @@
-
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import html2canvas from 'html2canvas';
 import { WordFrequency } from '../types';
 import { HEATMAP_COLORS } from '../constants';
 import MusicPlayer from './MusicPlayer';
+import SnapshotButton from './SnapshotButton';
 
 interface HeatmapProps {
   sequence: string[];
@@ -19,7 +18,7 @@ interface HeatmapProps {
 }
 
 const POINT_RADIUS = 1.35;
-const BASE_SCALE = 0.35; // Size of points before the wave hits
+const BASE_SCALE = 0.35; 
 
 const Heatmap: React.FC<HeatmapProps> = ({ 
   sequence, 
@@ -82,7 +81,7 @@ const Heatmap: React.FC<HeatmapProps> = ({
     if (!containerRef.current) return;
     const resizeObserver = new ResizeObserver(entries => {
       for (const entry of entries) {
-        const side = entry.contentRect.width;
+        const side = Math.floor(entry.contentRect.width);
         if (side > 0) setDimensions({ width: side, height: side });
       }
     });
@@ -91,11 +90,11 @@ const Heatmap: React.FC<HeatmapProps> = ({
   }, []);
 
   useEffect(() => {
-    if (dimensions.width === 0 || dataPoints.length === 0) return;
+    if (dimensions.width <= 0 || dataPoints.length === 0) return;
     
-    const n = sequence.length;
+    const n = Math.max(1, sequence.length);
     const padding = 24;
-    const innerSize = dimensions.width - padding * 2;
+    const innerSize = Math.max(0, dimensions.width - padding * 2);
     const xScale = d3.scaleLinear().domain([0, n]).range([0, innerSize]);
     const yScale = d3.scaleLinear().domain([0, n]).range([0, innerSize]);
 
@@ -110,9 +109,9 @@ const Heatmap: React.FC<HeatmapProps> = ({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || dimensions.width === 0 || dataPoints.length === 0) return;
+    if (!canvas || dimensions.width <= 0 || dataPoints.length === 0) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
@@ -121,50 +120,62 @@ const Heatmap: React.FC<HeatmapProps> = ({
     ctx.scale(dpr, dpr);
 
     const padding = 24;
-    const innerSize = dimensions.width - padding * 2;
+    const innerSize = Math.max(1, dimensions.width - padding * 2);
     const freqData = new Uint8Array(analyser ? analyser.frequencyBinCount : 0);
     let start: number | null = null;
 
-    const getOrCreateGradient = (key: string, create: () => CanvasGradient): CanvasGradient => {
-      if (!gradientCacheRef.current.has(key)) {
-        gradientCacheRef.current.set(key, create());
+    const addSafeColorStop = (grad: CanvasGradient, offset: number, color: string) => {
+      // Ensure offset is a finite number between 0 and 1
+      if (Number.isFinite(offset)) {
+        grad.addColorStop(Math.min(1, Math.max(0, offset)), color);
       }
-      return gradientCacheRef.current.get(key)!;
+    };
+
+    const getOrCreateGradient = (key: string, create: () => CanvasGradient): CanvasGradient | null => {
+      if (!gradientCacheRef.current.has(key)) {
+        try {
+          const grad = create();
+          gradientCacheRef.current.set(key, grad);
+        } catch (e) {
+          return null;
+        }
+      }
+      return gradientCacheRef.current.get(key) || null;
     };
 
     const draw = (time: number) => {
       if (!start) start = time;
       const loadDuration = 2500; 
-      const loadProgress = Math.min((time - start) / loadDuration, 1);
+      const rawProgress = (time - start) / loadDuration;
+      const loadProgress = Number.isFinite(rawProgress) ? Math.min(Math.max(rawProgress, 0), 1) : 1;
 
-      // 1. AUDIO REACTIVITY
       let intensity = 0;
       if (analyser && isPlaying) {
         analyser.getByteFrequencyData(freqData);
         const bassRange = Math.floor(freqData.length * 0.1);
         let bassSum = 0;
         for (let i = 0; i < bassRange; i++) bassSum += freqData[i];
-        const bassAvg = bassSum / bassRange;
+        const bassAvg = bassSum / Math.max(1, bassRange);
         
         beatHistoryRef.current.push(bassAvg);
         if (beatHistoryRef.current.length > 60) beatHistoryRef.current.shift();
         
-        const histAvg = beatHistoryRef.current.reduce((a,b) => a+b, 0) / beatHistoryRef.current.length;
+        const histAvg = beatHistoryRef.current.reduce((a,b) => a+b, 0) / Math.max(1, beatHistoryRef.current.length);
         if (bassAvg > histAvg * 1.3 && bassAvg > 35) {
           beatPulseRef.current = 1.35;
         } else {
           beatPulseRef.current *= 0.94;
         }
-        intensity = beatPulseRef.current;
+        intensity = Number.isFinite(beatPulseRef.current) ? beatPulseRef.current : 0;
       }
 
       const isInitialGlitch = loadProgress < 0.15;
       const effectiveIntensity = Math.max(intensity, isInitialGlitch ? Math.random() * 0.8 : 0);
-      const t = time * 0.001;
+      const t = Number.isFinite(time) ? time * 0.001 : 0;
+      
       const revolveX = innerSize / 2 + Math.cos(t * 0.95) * (innerSize / 3.2) + Math.sin(t * 4.2) * (15 * effectiveIntensity);
       const revolveY = innerSize / 2 + Math.sin(t * 0.75) * (innerSize / 3.2) + Math.cos(t * 3.2) * (15 * effectiveIntensity);
 
-      // 2. RENDER BASE
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = '#010204';
       ctx.fillRect(0, 0, dimensions.width, dimensions.height);
@@ -176,50 +187,42 @@ const Heatmap: React.FC<HeatmapProps> = ({
         ctx.translate((Math.random() - 0.5) * 6 * effectiveIntensity, (Math.random() - 0.5) * 6 * effectiveIntensity);
       }
 
-      // 3. AMBIENT HALATION (Pulsing Background)
-      if ((isPlaying || isInitialGlitch) && effectiveIntensity > 0.05) {
-        ctx.globalCompositeOperation = 'screen';
-        const haloSize = innerSize * (0.45 + effectiveIntensity * 0.7);
-        const hKey = `h-${Math.floor(revolveX/10)}-${Math.floor(revolveY/10)}-${Math.floor(haloSize/10)}`;
-        const haloGrad = getOrCreateGradient(hKey, () => {
-          const grad = ctx.createRadialGradient(revolveX, revolveY, 0, revolveX, revolveY, haloSize);
-          const alpha = (isPlaying ? 0.22 : 0.45) * effectiveIntensity;
-          grad.addColorStop(0, `rgba(99, 102, 241, ${alpha})`);
-          grad.addColorStop(0.5, `rgba(67, 56, 202, ${alpha * 0.5})`);
-          grad.addColorStop(1, 'rgba(0,0,0,0)');
-          return grad;
-        });
-        ctx.fillStyle = haloGrad;
-        ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
+      if ((isPlaying || isInitialGlitch) && effectiveIntensity > 0.05 && innerSize > 0) {
+        if (Number.isFinite(revolveX) && Number.isFinite(revolveY)) {
+          ctx.globalCompositeOperation = 'screen';
+          const haloSize = Math.max(0.1, innerSize * (0.45 + effectiveIntensity * 0.7));
+          const hKey = `h-${Math.floor(revolveX/10)}-${Math.floor(revolveY/10)}-${Math.floor(haloSize/10)}`;
+          const haloGrad = getOrCreateGradient(hKey, () => {
+            const grad = ctx.createRadialGradient(revolveX, revolveY, 0, revolveX, revolveY, haloSize);
+            const alpha = (isPlaying ? 0.22 : 0.45) * effectiveIntensity;
+            addSafeColorStop(grad, 0, `rgba(99, 102, 241, ${alpha})`);
+            addSafeColorStop(grad, 0.5, `rgba(67, 56, 202, ${alpha * 0.5})`);
+            addSafeColorStop(grad, 1, 'rgba(0,0,0,0)');
+            return grad;
+          });
+          if (haloGrad) {
+            ctx.fillStyle = haloGrad;
+            ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
+          }
+        }
       }
 
-      const wavePos = loadProgress * 1.6; // The current position of the growth wave
+      const wavePos = loadProgress * 1.6; 
       const scaledPoints = scaledPointsRef.current;
 
-      // 4. MAIN MATRIX LAYER (POPULATED FROM START)
       ctx.globalCompositeOperation = 'screen';
       
       const batches = new Map<string, Path2D>();
       for (const p of scaledPoints) {
-        // Calculate point growth based on wave proximity
-        // revealIdx is (p.x + p.y) / (2 * n)
         const dist = wavePos - p.revealIdx;
-        
-        // Growth curve: starts at BASE_SCALE, pops up, then settles at 1.0
         let scale = BASE_SCALE;
-        let pointAlpha = 0.35; // Lower opacity for pre-populated state
         
         if (dist > 0) {
-          // Point is passed by wave
           if (dist < 0.2) {
-            // Wave is currently hitting: scale "pops" up to 1.5 then settles
             const popAmount = Math.sin((dist / 0.2) * Math.PI);
             scale = BASE_SCALE + (1.0 - BASE_SCALE) * (dist / 0.2) + popAmount * 0.4;
-            pointAlpha = 0.35 + 0.65 * (dist / 0.2);
           } else {
-            // Wave has passed
             scale = 1.0;
-            pointAlpha = 1.0;
           }
         }
 
@@ -227,7 +230,6 @@ const Heatmap: React.FC<HeatmapProps> = ({
         let x = p.x;
         let y = p.y;
         
-        // Jitter glitch
         if (intensity > 1.1 && Math.random() > 0.95) {
           x += (Math.random() - 0.5) * 40 * intensity;
         }
@@ -242,57 +244,56 @@ const Heatmap: React.FC<HeatmapProps> = ({
       batches.forEach((path, color) => {
         ctx.fillStyle = color;
         ctx.shadowColor = color;
-        // Apply varying alpha if we want even more contrast, but batches share color.
-        // For simplicity, we stick to the vibrant batching.
         ctx.fill(path);
       });
       ctx.shadowBlur = 0;
 
-      // 5. THE SCALE-UP GLOW (Directional Wipe Overlay)
-      if (loadProgress < 1) {
+      if (loadProgress < 1 && innerSize > 0) {
         ctx.save();
         ctx.filter = 'blur(50px)';
         ctx.globalCompositeOperation = 'lighter';
         
-        const wipeW = 150;
-        const diagPos = loadProgress * innerSize * 2; // Diagonal travel
-        
-        // Create a directional glare that follows the wave edge
-        const bladeGrad = ctx.createLinearGradient(0, 0, innerSize, innerSize);
-        const s1 = Math.max(0, loadProgress - 0.1);
-        const s2 = Math.min(1, loadProgress + 0.1);
-        bladeGrad.addColorStop(s1, 'rgba(255, 255, 255, 0)');
-        bladeGrad.addColorStop(loadProgress, `rgba(255, 255, 255, ${0.8 * (1 - loadProgress)})`);
-        bladeGrad.addColorStop(s2, 'rgba(255, 255, 255, 0)');
-        
-        ctx.fillStyle = bladeGrad;
-        ctx.fillRect(0, 0, innerSize, innerSize);
+        try {
+          const bladeGrad = ctx.createLinearGradient(0, 0, innerSize, innerSize);
+          const s1 = Math.max(0, loadProgress - 0.1);
+          const s2 = Math.min(1, loadProgress + 0.1);
+          addSafeColorStop(bladeGrad, s1, 'rgba(255, 255, 255, 0)');
+          addSafeColorStop(bladeGrad, loadProgress, `rgba(255, 255, 255, ${Math.max(0, 0.8 * (1 - loadProgress))})`);
+          addSafeColorStop(bladeGrad, s2, 'rgba(255, 255, 255, 0)');
+          
+          ctx.fillStyle = bladeGrad;
+          ctx.fillRect(0, 0, innerSize, innerSize);
+        } catch (e) {}
         ctx.restore();
       }
 
-      // 6. PLAYBACK BEAT BLOOM
-      if (isPlaying && intensity > 0.1) {
-        ctx.globalCompositeOperation = 'screen';
-        const bloomSize = innerSize * (0.6 + intensity * 0.55);
-        const bloomAlpha = 0.25 + intensity * 0.35;
-        const bloomGrad = ctx.createRadialGradient(revolveX, revolveY, 0, revolveX, revolveY, bloomSize);
-        bloomGrad.addColorStop(0, `rgba(255, 255, 255, ${bloomAlpha})`);
-        bloomGrad.addColorStop(0.4, `rgba(139, 92, 246, ${bloomAlpha * 0.6})`);
-        bloomGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = bloomGrad;
-        ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
+      if (isPlaying && intensity > 0.1 && innerSize > 0) {
+        if (Number.isFinite(revolveX) && Number.isFinite(revolveY)) {
+          ctx.globalCompositeOperation = 'screen';
+          const bloomSize = Math.max(0.1, innerSize * (0.6 + intensity * 0.55));
+          const bloomAlpha = Math.max(0, 0.25 + intensity * 0.35);
+          try {
+            const bloomGrad = ctx.createRadialGradient(revolveX, revolveY, 0, revolveX, revolveY, bloomSize);
+            addSafeColorStop(bloomGrad, 0, `rgba(255, 255, 255, ${bloomAlpha})`);
+            addSafeColorStop(bloomGrad, 0.4, `rgba(139, 92, 246, ${bloomAlpha * 0.6})`);
+            addSafeColorStop(bloomGrad, 1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = bloomGrad;
+            ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
+          } catch (e) {}
+        }
       }
 
-      // 7. VIGNETTE OVERLAY
       ctx.globalCompositeOperation = 'multiply';
       const screenTexture = getOrCreateGradient('vignette', () => {
-        const grad = ctx.createRadialGradient(innerSize/2, innerSize/2, 0, innerSize/2, innerSize/2, innerSize * 0.9);
-        grad.addColorStop(0, 'rgba(255,255,255,1)');
-        grad.addColorStop(1, 'rgba(180,180,255,0.75)');
+        const grad = ctx.createRadialGradient(innerSize/2, innerSize/2, 0, innerSize/2, innerSize/2, Math.max(0.1, innerSize * 0.9));
+        addSafeColorStop(grad, 0, 'rgba(255,255,255,1)');
+        addSafeColorStop(grad, 1, 'rgba(180,180,255,0.75)');
         return grad;
       });
-      ctx.fillStyle = screenTexture;
-      ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
+      if (screenTexture) {
+        ctx.fillStyle = screenTexture;
+        ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
+      }
 
       ctx.restore();
       animationRef.current = requestAnimationFrame(draw);
@@ -305,46 +306,39 @@ const Heatmap: React.FC<HeatmapProps> = ({
     };
   }, [dimensions, dataPoints, isPlaying, analyser, sequence.length]);
 
-  const handleDownload = async () => {
-    if (!cardRef.current) return;
-    const canvas = await html2canvas(cardRef.current, {
-      backgroundColor: '#F5F5F5',
-      scale: 2,
-      useCORS: true
-    });
-    const link = document.createElement('a');
-    link.download = `${songName || 'song'}-repetition-matrix.jpg`;
-    link.href = canvas.toDataURL('image/jpeg', 0.95);
-    link.click();
-  };
-
   return (
-    <div className="flex flex-col gap-4 max-w-2xl mx-auto w-full">
-      <div ref={cardRef} className="w-full clay-card p-6 flex flex-col gap-4 relative">
-        <div className="flex gap-4 items-center">
-          <div className="relative group">
+    <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full">
+      <div 
+        id="matrix-capture-card"
+        ref={cardRef} 
+        className="w-full clay-card p-6 flex flex-col gap-6 relative bg-[#F5F5F5]"
+      >
+        <div className="flex gap-4 items-start w-full">
+          <div className="relative flex-shrink-0 group">
             {coverArt ? (
-              <img src={coverArt} alt="Album Art" className="w-16 h-16 rounded-2xl shadow-xl border-2 border-white object-cover transition-transform group-hover:scale-110" />
+              <img src={coverArt} alt="Album Art" className="w-16 h-16 rounded-2xl shadow-xl border-2 border-white object-cover transition-transform group-hover:scale-105" />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-400">
+              <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-400 border-2 border-white">
                 <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
               </div>
             )}
-            {isPlaying && <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-ping"></div>}
+            {isPlaying && <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-pulse" data-html2canvas-ignore="true"></div>}
           </div>
           
-          <div className="flex flex-col flex-1">
-            <h3 className="text-xl font-black text-slate-800 leading-tight truncate">{songName || "Analyzing Track..."}</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-indigo-500 uppercase tracking-widest">{artistName || "Unknown Artist"}</span>
-              {releaseYear && <span className="text-[10px] font-black text-slate-400 bg-white/50 px-2 py-0.5 rounded-full border border-slate-100">{releaseYear}</span>}
+          <div className="flex flex-col flex-1 min-w-0 pr-12">
+            <h3 className="text-xl md:text-2xl font-black text-slate-800 leading-none truncate antialiased">
+              {songName || "Analyzing Track..."}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="text-sm font-black text-indigo-500 uppercase tracking-widest truncate">{artistName || "Unknown Artist"}</span>
+              {releaseYear && <span className="text-[10px] font-black text-slate-400 bg-white/60 px-2 py-0.5 rounded-full border border-slate-100 flex-shrink-0">{releaseYear}</span>}
             </div>
           </div>
           
-          <div className="relative">
+          <div className="absolute top-6 right-6 z-10" data-html2canvas-ignore="true">
             <button 
               onClick={() => setShowLyrics(!showLyrics)}
-              className={`w-10 h-10 rounded-full clay-button flex items-center justify-center transition-all ${showLyrics ? 'bg-indigo-50 shadow-inner text-indigo-700' : 'text-indigo-500'}`}
+              className={`w-10 h-10 rounded-full clay-button flex items-center justify-center transition-all ${showLyrics ? 'bg-indigo-100 shadow-inner' : ''}`}
               title="Lyrics View"
             >
               <span className="font-serif italic font-black text-lg">i</span>
@@ -367,46 +361,47 @@ const Heatmap: React.FC<HeatmapProps> = ({
         </div>
 
         <div ref={containerRef} className="w-full aspect-square rounded-3xl overflow-hidden border border-slate-200 shadow-2xl bg-[#010204] relative">
-           <canvas 
+          <canvas 
             ref={canvasRef} 
             style={{ width: dimensions.width, height: dimensions.height }} 
-            className="block cursor-crosshair" 
+            className="block" 
           />
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-white/5 to-transparent"></div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-row justify-between items-end gap-4 relative z-10">
-              <div className="flex flex-col gap-2 flex-1">
-                  <div className="flex flex-col items-start gap-1">
-                      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Lyrical Density Wave</div>
-                      <div className="flex items-center gap-2 w-full max-w-[200px]">
-                          <span className="text-[10px] text-slate-400 font-bold tracking-tighter">RARE</span>
-                          <div className="flex-1 h-2 rounded-full border border-white/20" style={{ background: `linear-gradient(to right, ${HEATMAP_COLORS.join(', ')})` }}></div>
-                          <span className="text-[10px] text-slate-400 font-bold tracking-tighter">HOT</span>
-                      </div>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 relative">
+              <div className="flex flex-col gap-2">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-black">Lyrical Density Wave</div>
+                  <div className="flex items-center gap-3">
+                      <span className="text-[10px] text-slate-400 font-black tracking-tighter">RARE</span>
+                      <div data-legend-bar className="w-48 h-2 rounded-full border border-white/20" style={{ background: `linear-gradient(to right, ${HEATMAP_COLORS.join(', ')})` }}></div>
+                      <span className="text-[10px] text-slate-400 font-black tracking-tighter">HOT</span>
                   </div>
               </div>
-              <div className="bg-white/90 text-slate-700 text-[10px] font-black px-3 py-1.5 rounded-full border border-slate-100 shadow-sm whitespace-nowrap tracking-widest flex gap-2 items-center">
+              <div className="bg-white/90 text-slate-700 text-[10px] font-black px-4 py-2 rounded-full border border-slate-100 shadow-sm whitespace-nowrap tracking-widest flex gap-2 items-center">
                   <div className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-rose-500 animate-pulse' : 'bg-slate-300'}`}></div>
                   {sequence.length} WORDS
               </div>
           </div>
-          {previewUrl && (
-            <MusicPlayer 
-              previewUrl={previewUrl} 
-              onToggle={setIsPlaying} 
-              onAnalyserReady={(node) => setAnalyser(node)}
-            />
-          )}
+          
+          <div data-html2canvas-ignore="true">
+            {previewUrl && (
+              <MusicPlayer 
+                previewUrl={previewUrl} 
+                onToggle={setIsPlaying} 
+                onAnalyserReady={(node) => setAnalyser(node)}
+              />
+            )}
+          </div>
         </div>
       </div>
-      <div className="flex justify-center mt-2">
-        <button onClick={handleDownload} className="clay-button px-8 py-3 text-sm flex items-center gap-2 group">
-          <svg className="w-4 h-4 group-hover:scale-125 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-          Snapshot Frame
-        </button>
-      </div>
+
+      {/* Snapshot Export Button */}
+      <SnapshotButton 
+        targetRef={cardRef} 
+        filename={songName || 'lyrical_matrix'} 
+      />
     </div>
   );
 };

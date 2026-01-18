@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 
 interface MusicPlayerProps {
@@ -107,7 +106,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, onToggle, onAnaly
   };
 
   return (
-    <div className="flex flex-col w-full mt-2 p-4 rounded-2xl bg-slate-50/30">
+    <div data-music-player className="flex flex-col w-full mt-2 p-4 rounded-2xl bg-slate-50/30">
       <audio ref={audioRef} src={previewUrl} preload="auto" crossOrigin="anonymous" />
       
       <div className="flex items-center gap-6">
