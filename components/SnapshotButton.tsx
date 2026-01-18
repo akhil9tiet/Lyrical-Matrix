@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import html2canvas from 'html2canvas';
+import { toBlob } from 'html-to-image';
 
 interface SnapshotButtonProps {
   targetRef: React.RefObject<HTMLDivElement | null>;
@@ -10,156 +10,157 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
   const [isCapturing, setIsCapturing] = useState(false);
 
   const handleDownload = async () => {
-    const sourceCard = targetRef.current;
-    if (!sourceCard) return;
+    const sourceNode = targetRef.current;
+    if (!sourceNode) return;
     
     setIsCapturing(true);
     
     try {
-      // Small delay to ensure any layout calculations or active frames are stable
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // 1. CREATE A CLONE FOR TRANSFORMATION
+      // html-to-image is much more accurate with real DOM nodes. 
+      // We clone it so we can modify the styles for the "Poster" look without affecting the live UI.
+      const clone = sourceNode.cloneNode(true) as HTMLDivElement;
+      
+      // We need to attach the clone to the document to allow for style calculation, 
+      // but we hide it off-screen.
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '800px';
+      container.style.backgroundColor = '#F5F5F5';
+      container.appendChild(clone);
+      document.body.appendChild(container);
 
-      const canvas = await html2canvas(sourceCard, {
-        backgroundColor: null, // Transparent background for the card area
-        scale: 2, // High resolution
-        useCORS: true, // Required for album art
-        logging: false,
-        onclone: (clonedDoc) => {
-          const card = clonedDoc.getElementById('matrix-capture-card');
-          if (!card) return;
+      // 2. APPLY POSTER STYLES TO CLONE
+      const POSTER_WIDTH = 800;
+      const VIZ_SIZE = 680;
 
-          // 1. MANUALLY SYNC CANVAS BITMAP
-          // html2canvas sometimes misses the bitmap of an actively drawn canvas.
-          // We find the original canvas and the cloned one, then copy the pixels.
-          const originalCanvas = sourceCard.querySelector('canvas');
-          const clonedCanvas = card.querySelector('canvas');
-          if (originalCanvas && clonedCanvas) {
-            const destCtx = clonedCanvas.getContext('2d');
-            if (destCtx) {
-              // We need to ensure the dimensions match for the drawImage call
-              clonedCanvas.width = originalCanvas.width;
-              clonedCanvas.height = originalCanvas.height;
-              destCtx.drawImage(originalCanvas, 0, 0);
-            }
-          }
+      // Reset main card styles
+      Object.assign(clone.style, {
+        background: '#F5F5F5',
+        boxShadow: 'none',
+        border: 'none',
+        borderRadius: '0',
+        padding: '60px',
+        width: `${POSTER_WIDTH}px`,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '50px',
+        height: 'auto',
+        transform: 'none',
+        opacity: '1'
+      });
 
-          // 2. STRIP CONTAINER STYLES
-          // Removing the neumorphic card background for a clean export
-          Object.assign(card.style, {
-            background: 'none',
-            backgroundColor: 'transparent',
-            boxShadow: 'none',
-            border: 'none',
-            borderRadius: '0',
-            padding: '40px',
-            width: '800px',
-            margin: '0 auto',
+      // Sync the internal canvas from the source to the clone manually
+      // because cloneNode does not copy the drawing context (bitmap) of a canvas.
+      const sourceCanvas = sourceNode.querySelector('canvas');
+      const clonedCanvas = clone.querySelector('canvas');
+      if (sourceCanvas && clonedCanvas) {
+        clonedCanvas.width = sourceCanvas.width;
+        clonedCanvas.height = sourceCanvas.height;
+        const ctx = clonedCanvas.getContext('2d');
+        if (ctx) ctx.drawImage(sourceCanvas, 0, 0);
+      }
+
+      // Hide interactive UI elements in the clone
+      const elementsToHide = clone.querySelectorAll('[data-html2canvas-ignore="true"], [data-music-player], button, .bg-gradient-to-tr');
+      elementsToHide.forEach(el => {
+        if (el instanceof HTMLElement) el.style.display = 'none';
+      });
+
+      // Fix the legend bar (gradient)
+      const legendBar = clone.querySelector('[data-legend-bar]') as HTMLElement;
+      if (legendBar) {
+        const parent = legendBar.parentElement;
+        if (parent) {
+          Object.assign(parent.style, {
             display: 'flex',
-            flexDirection: 'column',
-            gap: '40px',
-            minHeight: 'auto'
-          });
-
-          // 3. HIDE DECORATIVE & INTERACTIVE ELEMENTS
-          const elementsToHide = card.querySelectorAll('[data-html2canvas-ignore="true"], [data-music-player], button, .bg-gradient-to-tr');
-          elementsToHide.forEach(el => {
-            if (el instanceof HTMLElement) el.style.display = 'none';
-          });
-
-          // 4. FIX GRADIENT ELEMENTS (Prevent non-finite error)
-          const legendBar = card.querySelector('[data-legend-bar]') as HTMLElement;
-          if (legendBar) {
-            const parent = legendBar.parentElement;
-            if (parent) {
-              Object.assign(parent.style, {
-                display: 'flex',
-                width: '300px',
-                gap: '12px',
-                alignItems: 'center'
-              });
-            }
-            Object.assign(legendBar.style, {
-              width: '200px',
-              minWidth: '200px',
-              maxWidth: '200px',
-              height: '10px',
-              display: 'block',
-              flex: 'none',
-              borderRadius: '5px'
-            });
-          }
-
-          // 5. FIX VISUALIZATION CONTAINER
-          const vizContainer = card.querySelector('canvas')?.parentElement;
-          if (vizContainer) {
-            Object.assign(vizContainer.style, {
-              width: '720px',
-              height: '720px',
-              boxShadow: '0 25px 60px rgba(0,0,0,0.2)',
-              borderRadius: '32px',
-              aspectRatio: 'unset',
-              display: 'block',
-              margin: '0 auto',
-              overflow: 'hidden'
-            });
-            const innerCanvas = vizContainer.querySelector('canvas');
-            if (innerCanvas) {
-              Object.assign(innerCanvas.style, {
-                width: '720px',
-                height: '720px',
-                display: 'block'
-              });
-            }
-          }
-
-          // 6. ADJUST TYPOGRAPHY
-          const title = card.querySelector('h3');
-          if (title) {
-            Object.assign(title.style, {
-              fontSize: '56px',
-              fontWeight: '900',
-              color: '#1e293b',
-              lineHeight: '1',
-              marginBottom: '6px'
-            });
-          }
-
-          const artist = card.querySelector('.text-indigo-500') as HTMLElement;
-          if (artist) {
-            Object.assign(artist.style, {
-              fontSize: '22px',
-              letterSpacing: '0.15em',
-              fontWeight: '800'
-            });
-          }
-
-          // Clean up cloned body
-          clonedDoc.body.style.backgroundColor = 'transparent';
-          const children = Array.from(clonedDoc.body.children);
-          children.forEach(child => {
-            if (child instanceof HTMLElement && child !== card && !card.contains(child)) {
-              child.style.display = 'none';
-            }
+            width: '400px',
+            gap: '16px',
+            alignItems: 'center'
           });
         }
-      });
-      
-      // RELIABLE DOWNLOAD VIA BLOB
-      // This prevents "Corrupted Image" errors caused by data URL length limits
-      canvas.toBlob((blob) => {
-        if (!blob) throw new Error("Canvas to Blob conversion failed");
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `${filename.replace(/\s+/g, '_')}_matrix.png`;
-        link.href = url;
-        link.click();
-        
-        // Clean up the object URL after a short delay
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-      }, 'image/png');
+        Object.assign(legendBar.style, {
+          width: '250px',
+          height: '12px',
+          borderRadius: '6px'
+        });
+      }
 
-    } catch (err) {
-      console.error("Snapshot generation failed:", err);
+      // Fix Visualization container
+      const vizContainer = clone.querySelector('canvas')?.parentElement;
+      if (vizContainer) {
+        Object.assign(vizContainer.style, {
+          width: `${VIZ_SIZE}px`,
+          height: `${VIZ_SIZE}px`,
+          boxShadow: '0 30px 80px rgba(0,0,0,0.25)',
+          borderRadius: '40px',
+          display: 'block',
+          margin: '0 auto',
+          overflow: 'hidden',
+          backgroundColor: '#010204'
+        });
+        const innerCanvas = vizContainer.querySelector('canvas');
+        if (innerCanvas) {
+          Object.assign(innerCanvas.style, {
+            width: `${VIZ_SIZE}px`,
+            height: `${VIZ_SIZE}px`,
+            display: 'block'
+          });
+        }
+      }
+
+      // Typography scaling
+      const title = clone.querySelector('h3');
+      if (title) {
+        Object.assign(title.style, {
+          fontSize: '64px',
+          fontWeight: '950',
+          color: '#1e293b',
+          lineHeight: '1',
+          letterSpacing: '-0.02em',
+          display: 'block',
+          marginBottom: '8px'
+        });
+      }
+
+      const artist = clone.querySelector('.text-indigo-500') as HTMLElement;
+      if (artist) {
+        Object.assign(artist.style, {
+          fontSize: '24px',
+          letterSpacing: '0.2em',
+          fontWeight: '800',
+          display: 'block'
+        });
+      }
+
+      // 3. GENERATE IMAGE
+      // We use a small delay to ensure styles and images are fully processed in the clone
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const blob = await toBlob(clone, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: '#F5F5F5'
+      });
+
+      if (!blob) throw new Error("Could not generate image blob.");
+
+      // 4. DOWNLOAD
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `${filename.replace(/\s+/g, '_')}_matrix.png`;
+      link.href = url;
+      link.click();
+
+      // 5. CLEANUP
+      document.body.removeChild(container);
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+
+    } catch (err: any) {
+      console.error("Poster generation failed:", err);
+      alert("Failed to generate image. Please try again.");
     } finally {
       setIsCapturing(false);
     }

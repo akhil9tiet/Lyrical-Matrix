@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 export const fetchLyrics = async (song: string, artist: string): Promise<{ lyrics: string, coverArt?: string }> => {
@@ -31,19 +30,26 @@ export const fetchLyrics = async (song: string, artist: string): Promise<{ lyric
       }
     });
 
+    // Use the .text property as recommended by the guidelines
     const text = response.text;
-    if (!text) {
-      console.warn("Gemini returned empty text, checking candidates...");
-      if (response.candidates && response.candidates.length > 0) {
-        // Sometimes the text getter might fail if parts are weirdly structured
-        const partText = response.candidates[0].content.parts.find(p => p.text)?.text;
-        if (!partText) throw new Error("No content generated in any part.");
-        return processResponse(partText);
-      }
-      throw new Error("No content generated.");
+    
+    if (text) {
+      return processResponse(text);
     }
 
-    return processResponse(text);
+    // Robust fallback if .text is empty
+    console.warn("Gemini returned empty .text, checking candidates manually...");
+    const candidate = response.candidates?.[0];
+    const parts = candidate?.content?.parts;
+    
+    if (parts && Array.isArray(parts)) {
+      const partWithText = parts.find(p => typeof p.text === 'string');
+      if (partWithText?.text) {
+        return processResponse(partWithText.text);
+      }
+    }
+
+    throw new Error("No readable content returned from the model.");
   } catch (error) {
     console.error("Gemini service error:", error);
     throw error;
