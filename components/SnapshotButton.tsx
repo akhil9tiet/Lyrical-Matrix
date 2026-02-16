@@ -134,7 +134,48 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
         });
       }
 
-      // 3. GENERATE IMAGE
+      // 3. ADD WATERMARK / BRANDING
+      const watermark = document.createElement('div');
+      Object.assign(watermark.style, {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        paddingTop: '20px',
+        borderTop: '1px solid #e2e8f0',
+        marginTop: '10px',
+        width: '100%',
+      });
+      // Logo icon (small matrix grid)
+      const logoSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      logoSvg.setAttribute('width', '18');
+      logoSvg.setAttribute('height', '18');
+      logoSvg.setAttribute('viewBox', '0 0 16 16');
+      logoSvg.innerHTML = `
+        <rect x="0" y="0" width="4.5" height="4.5" rx="1" fill="#6366f1"/>
+        <rect x="5.75" y="0" width="4.5" height="4.5" rx="1" fill="#6366f1" opacity="0.6"/>
+        <rect x="11.5" y="0" width="4.5" height="4.5" rx="1" fill="#6366f1" opacity="0.3"/>
+        <rect x="0" y="5.75" width="4.5" height="4.5" rx="1" fill="#6366f1" opacity="0.6"/>
+        <rect x="5.75" y="5.75" width="4.5" height="4.5" rx="1" fill="#6366f1"/>
+        <rect x="11.5" y="5.75" width="4.5" height="4.5" rx="1" fill="#6366f1" opacity="0.6"/>
+        <rect x="0" y="11.5" width="4.5" height="4.5" rx="1" fill="#6366f1" opacity="0.3"/>
+        <rect x="5.75" y="11.5" width="4.5" height="4.5" rx="1" fill="#6366f1" opacity="0.6"/>
+        <rect x="11.5" y="11.5" width="4.5" height="4.5" rx="1" fill="#6366f1"/>
+      `;
+      watermark.appendChild(logoSvg);
+      const brandText = document.createElement('span');
+      Object.assign(brandText.style, {
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#94a3b8',
+        letterSpacing: '0.12em',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+      });
+      brandText.textContent = 'Follow @ai_ai_capitan on Instagram';
+      watermark.appendChild(brandText);
+      clone.appendChild(watermark);
+
+      // 4. GENERATE IMAGE
       // We use a small delay to ensure styles and images are fully processed in the clone
       await new Promise(resolve => setTimeout(resolve, 300));
 
