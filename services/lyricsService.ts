@@ -1,14 +1,10 @@
-
-import { fetchLyrics as fetchLyricsGemini } from './geminiService';
-
 export interface LyricsResponse {
   lyrics: string;
-  source: 'api' | 'gemini';
+  source: 'api';
 }
 
 /**
- * Fetches lyrics from lyrics.ovh with a fallback to Gemini AI for better accuracy
- * and finding difficult-to-locate tracks (like remixes or rare versions).
+ * Fetches lyrics from lyrics.ovh.
  */
 export const getLyrics = async (
   song: string, 
@@ -33,27 +29,8 @@ export const getLyrics = async (
       }
     }
   } catch (err) {
-    console.warn("Primary API failed, falling back to AI search...");
+    console.error("Lyrics Retrieval Error:", err);
   }
 
-  // Fallback to Gemini if API fails or lyrics not found
-  onStatus("Performing deep search for lyrics...");
-  try {
-    const aiResult = await fetchLyricsGemini(song, artist);
-    if (aiResult.lyrics && aiResult.lyrics !== "[Instrumental]") {
-      return {
-        lyrics: aiResult.lyrics,
-        source: 'gemini'
-      };
-    } else if (aiResult.lyrics === "[Instrumental]") {
-        return {
-            lyrics: "[Instrumental]",
-            source: 'gemini'
-        }
-    }
-    throw new Error("No lyrics found even with deep search.");
-  } catch (err: any) {
-    console.error("Lyrics Retrieval Error:", err);
-    throw new Error(`Could not find lyrics for "${song}". Please check the title and artist name.`);
-  }
+  throw new Error(`Could not find lyrics for "${song}". Please check the title and artist name.`);
 };
