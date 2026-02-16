@@ -8,12 +8,11 @@ interface SnapshotButtonProps {
 
 const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) => {
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
-  const handleDownload = async () => {
+  const generatePosterBlob = async (): Promise<Blob> => {
     const sourceNode = targetRef.current;
-    if (!sourceNode) return;
-    
-    setIsCapturing(true);
+    if (!sourceNode) throw new Error("No target element found.");
     
     try {
       // 1. CREATE A CLONE FOR TRANSFORMATION
@@ -147,17 +146,28 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
 
       if (!blob) throw new Error("Could not generate image blob.");
 
-      // 4. DOWNLOAD
+      // CLEANUP
+      document.body.removeChild(container);
+      return blob;
+
+    } catch (err: any) {
+      // ensure cleanup even on error
+      const leftover = document.querySelector('[style*="-9999px"]');
+      if (leftover) leftover.remove();
+      throw err;
+    }
+  };
+
+  const handleDownload = async () => {
+    setIsCapturing(true);
+    try {
+      const blob = await generatePosterBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.download = `${filename.replace(/\s+/g, '_')}_matrix.png`;
       link.href = url;
       link.click();
-
-      // 5. CLEANUP
-      document.body.removeChild(container);
       setTimeout(() => URL.revokeObjectURL(url), 500);
-
     } catch (err: any) {
       console.error("Poster generation failed:", err);
       alert("Failed to generate image. Please try again.");
@@ -166,11 +176,51 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
     }
   };
 
+  const handleShareInstagram = async () => {
+    setIsSharing(true);
+    try {
+      const blob = await generatePosterBlob();
+      const file = new File([blob], `${filename.replace(/\s+/g, '_')}_matrix.png`, { type: 'image/png' });
+
+      // Use Web Share API if available (mobile — enables direct share to Instagram)
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: `${filename} — Lyrical Matrix`,
+          files: [file],
+        });
+      } else {
+        // Desktop fallback: copy image to clipboard
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          alert('Image copied to clipboard! Open Instagram and paste it into a new post or story.');
+        } catch {
+          // If clipboard fails, fall back to download
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = `${filename.replace(/\s+/g, '_')}_matrix.png`;
+          link.href = url;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 500);
+          alert('Image downloaded! Open Instagram and upload it as a new post or story.');
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error("Instagram share failed:", err);
+        alert("Failed to share. Please try again.");
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
-    <div className="flex justify-center mt-10 pb-20">
+    <div className="flex justify-center gap-4 mt-10 pb-20 flex-wrap">
       <button 
         onClick={handleDownload} 
-        disabled={isCapturing}
+        disabled={isCapturing || isSharing}
         className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
       >
         {isCapturing ? (
@@ -184,7 +234,28 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
           </svg>
         )}
         <span className="font-black tracking-widest uppercase">
-          {isCapturing ? 'Generating...' : 'Download Matrix Poster'}
+          {isCapturing ? 'Generating...' : 'Download Poster'}
+        </span>
+      </button>
+      <button
+        onClick={handleShareInstagram}
+        disabled={isCapturing || isSharing}
+        className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+      >
+        {isSharing ? (
+          <svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        ) : (
+          <svg className="w-8 h-8 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="2" y="2" width="20" height="20" rx="5" />
+            <circle cx="12" cy="12" r="5" />
+            <circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none" />
+          </svg>
+        )}
+        <span className="font-black tracking-widest uppercase">
+          {isSharing ? 'Preparing...' : 'Share to Instagram'}
         </span>
       </button>
     </div>
