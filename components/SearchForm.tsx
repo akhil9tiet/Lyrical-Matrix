@@ -4,9 +4,17 @@ import { SongDetails } from '../types';
 interface SearchFormProps {
   onSearch: (details: SongDetails) => void;
   isLoading: boolean;
+  showExamples: boolean;
 }
 
-const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
+const EXAMPLE_SONGS: SongDetails[] = [
+  { songName: 'Hotel California', artistName: 'Eagles' },
+  { songName: 'Yellow', artistName: 'Coldplay' },
+  { songName: "Ain't No Sunshine", artistName: 'Bill Withers' },
+  { songName: "It's My Life", artistName: 'Talk Talk' },
+];
+
+const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExamples }) => {
   const [songName, setSongName] = useState('');
   const [artistName, setArtistName] = useState('');
   const [titleTouched, setTitleTouched] = useState(false);
@@ -18,6 +26,12 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
     if (hasSongTitle) {
       onSearch({ songName, artistName });
     }
+  };
+
+  const handleExampleClick = (example: SongDetails) => {
+    setSongName(example.songName);
+    setArtistName(example.artistName);
+    onSearch(example);
   };
 
   return (
@@ -66,6 +80,24 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
           )}
         </button>
       </form>
+      {showExamples && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2" aria-label="Example songs">
+          <span className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            Try an example
+          </span>
+          {EXAMPLE_SONGS.map((example) => (
+            <button
+              key={example.songName}
+              type="button"
+              onClick={() => handleExampleClick(example)}
+              disabled={isLoading}
+              className="clay-button px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {example.songName}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

@@ -62,7 +62,11 @@ const App: React.FC = () => {
     <div className="container mx-auto h-[100dvh] overflow-hidden px-4 py-2 flex flex-col">
       <Header />
       
-      <SearchForm onSearch={handleSearch} isLoading={appState === AppState.LOADING} />
+      <SearchForm
+        onSearch={handleSearch}
+        isLoading={appState === AppState.LOADING}
+        showExamples={appState === AppState.IDLE}
+      />
 
       <main className="flex-1 min-h-0 w-full max-w-4xl mx-auto flex flex-col items-center overflow-hidden">
         {appState === AppState.LOADING && (
