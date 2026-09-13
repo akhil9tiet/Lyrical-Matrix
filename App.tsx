@@ -59,12 +59,12 @@ const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="container mx-auto px-4 pb-12 min-h-screen flex flex-col">
+    <div className="container mx-auto h-[100dvh] overflow-hidden px-4 py-2 flex flex-col">
       <Header />
       
       <SearchForm onSearch={handleSearch} isLoading={appState === AppState.LOADING} />
 
-      <main className="flex-1 w-full max-w-4xl mx-auto flex flex-col items-center">
+      <main className="flex-1 min-h-0 w-full max-w-4xl mx-auto flex flex-col items-center overflow-hidden">
         {appState === AppState.LOADING && (
           <div className="flex flex-col items-center gap-6 mt-12 animate-pulse">
             <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -81,7 +81,7 @@ const App: React.FC = () => {
         )}
 
         {appState === AppState.SUCCESS && result && (
-          <div className="w-full animate-reveal-card">
+          <div className="w-full h-full min-h-0 animate-reveal-card">
             <Heatmap 
               sequence={result.sequence} 
               wordData={result.wordData} 
