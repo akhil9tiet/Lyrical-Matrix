@@ -1,5 +1,8 @@
 {
   "name": "Lyrical Heatmap",
+  "created by": " Akhil Gupta",
+  "llm model": "gpt-4o-mini",
+  "ai harness": "github copilot",
   "description": "Visualizes the frequency of words in song lyrics using a heatmap.",
   "requestFramePermissions": []
 }
