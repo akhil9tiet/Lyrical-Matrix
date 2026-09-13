@@ -9,10 +9,13 @@ interface SearchFormProps {
 const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
   const [songName, setSongName] = useState('');
   const [artistName, setArtistName] = useState('');
+  const [titleTouched, setTitleTouched] = useState(false);
+  const hasSongTitle = songName.trim().length > 0;
+  const showTitleError = titleTouched && !hasSongTitle;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (songName.trim()) {
+    if (hasSongTitle) {
       onSearch({ songName, artistName });
     }
   };
@@ -23,14 +26,24 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
         onSubmit={handleSubmit} 
         className="flex flex-col sm:flex-row gap-2 clay-card p-3"
       >
-        <input
-          type="text"
-          placeholder="Song name (e.g. Hey Jude)"
-          value={songName}
-          onChange={(e) => setSongName(e.target.value)}
-          className="flex-1 clay-inset px-4 py-2.5 text-sm focus:outline-none placeholder-slate-400"
-          required
-        />
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Song name (e.g. Hey Jude)"
+            value={songName}
+            onChange={(e) => setSongName(e.target.value)}
+            onBlur={() => setTitleTouched(true)}
+            className={`w-full clay-inset px-4 py-2.5 text-sm focus:outline-none placeholder-slate-400 ${showTitleError ? 'border border-red-300' : ''}`}
+            aria-invalid={showTitleError}
+            aria-describedby={showTitleError ? 'song-title-error' : undefined}
+            required
+          />
+          {showTitleError && (
+            <p id="song-title-error" className="mt-1 px-2 text-xs font-bold text-red-500">
+              Enter a song title to continue.
+            </p>
+          )}
+        </div>
         <input
           type="text"
           placeholder="Artist (Optional)"
@@ -40,7 +53,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) => {
         />
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || !hasSongTitle}
           className="clay-button px-6 py-2.5 min-w-[100px] flex items-center justify-center"
         >
           {isLoading ? (
