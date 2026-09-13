@@ -81,9 +81,8 @@ const Heatmap: React.FC<HeatmapProps> = ({
     if (!containerRef.current) return;
     const resizeObserver = new ResizeObserver(entries => {
       for (const entry of entries) {
-        const width = Math.floor(entry.contentRect.width);
-        const height = Math.floor(entry.contentRect.height);
-        if (width > 0 && height > 0) setDimensions({ width, height });
+        const side = Math.floor(entry.contentRect.width);
+        if (side > 0) setDimensions({ width: side, height: side });
       }
     });
     resizeObserver.observe(containerRef.current);
@@ -95,9 +94,9 @@ const Heatmap: React.FC<HeatmapProps> = ({
     
     const n = Math.max(1, sequence.length);
     const padding = 24;
-    const plotSize = Math.max(0, Math.min(dimensions.width, dimensions.height) - padding * 2);
-    const xScale = d3.scaleLinear().domain([0, n]).range([0, plotSize]);
-    const yScale = d3.scaleLinear().domain([0, n]).range([0, plotSize]);
+    const innerSize = Math.max(0, dimensions.width - padding * 2);
+    const xScale = d3.scaleLinear().domain([0, n]).range([0, innerSize]);
+    const yScale = d3.scaleLinear().domain([0, n]).range([0, innerSize]);
 
     scaledPointsRef.current = dataPoints.map(p => ({
       x: xScale(p.x),
@@ -308,11 +307,11 @@ const Heatmap: React.FC<HeatmapProps> = ({
   }, [dimensions, dataPoints, isPlaying, analyser, sequence.length]);
 
   return (
-    <div className="flex flex-col gap-3 max-w-2xl mx-auto w-full h-full min-h-0">
+    <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full">
       <div 
         id="matrix-capture-card"
         ref={cardRef} 
-        className="w-full flex-1 min-h-0 clay-card p-4 flex flex-col gap-4 relative bg-[#F5F5F5]"
+        className="w-full clay-card p-6 flex flex-col gap-6 relative bg-[#F5F5F5]"
       >
         <div className="flex gap-4 items-start w-full">
           <div className="relative flex-shrink-0 group">
@@ -361,7 +360,7 @@ const Heatmap: React.FC<HeatmapProps> = ({
           </div>
         </div>
 
-        <div ref={containerRef} className="w-full flex-1 min-h-0 rounded-3xl overflow-hidden border border-slate-200 shadow-2xl bg-[#010204] relative">
+        <div ref={containerRef} className="w-full aspect-square rounded-3xl overflow-hidden border border-slate-200 shadow-2xl bg-[#010204] relative">
           <canvas 
             ref={canvasRef} 
             style={{ width: dimensions.width, height: dimensions.height }} 
@@ -370,7 +369,7 @@ const Heatmap: React.FC<HeatmapProps> = ({
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-tr from-white/5 to-transparent"></div>
         </div>
 
-        <div className="shrink-0 flex flex-col gap-3">
+        <div className="flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 relative">
               <div className="flex flex-col gap-2">
                   <div className="text-[10px] uppercase tracking-wider text-slate-400 font-black">Lyrical Density Wave</div>

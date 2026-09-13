@@ -258,11 +258,11 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
   };
 
   return (
-    <div className="shrink-0 flex justify-center gap-3 mt-0 pb-0 flex-wrap">
+    <div className="flex justify-center gap-4 mt-10 pb-20 flex-wrap">
       <button 
         onClick={handleDownload} 
         disabled={isCapturing || isSharing}
-        className="clay-button px-6 py-3 text-xs flex items-center gap-2 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+        className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
       >
         {isCapturing ? (
           <svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -270,7 +270,7 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         ) : (
-          <svg className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-8 h-8 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
           </svg>
         )}
@@ -281,7 +281,7 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
       <button
         onClick={handleShareInstagram}
         disabled={isCapturing || isSharing}
-        className="clay-button px-6 py-3 text-xs flex items-center gap-2 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+        className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
       >
         {isSharing ? (
           <svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -289,7 +289,7 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         ) : (
-          <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <svg className="w-8 h-8 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <rect x="2" y="2" width="20" height="20" rx="5" />
             <circle cx="12" cy="12" r="5" />
             <circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none" />

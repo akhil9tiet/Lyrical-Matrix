@@ -35,10 +35,10 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExampl
   };
 
   return (
-    <div className="shrink-0 sticky top-2 z-20 w-full max-w-xl mx-auto mb-3">
+    <div className="sticky top-4 z-20 w-full max-w-xl mx-auto mb-8">
       <form 
         onSubmit={handleSubmit} 
-        className="flex flex-col sm:flex-row gap-2 clay-card p-3"
+        className="flex flex-col sm:flex-row gap-4 clay-card p-4"
       >
         <div className="flex-1">
           <input
@@ -47,7 +47,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExampl
             value={songName}
             onChange={(e) => setSongName(e.target.value)}
             onBlur={() => setTitleTouched(true)}
-            className={`w-full clay-inset px-4 py-2.5 text-sm focus:outline-none placeholder-slate-400 ${showTitleError ? 'border border-red-300' : ''}`}
+            className={`w-full clay-inset px-4 py-3 text-sm focus:outline-none placeholder-slate-400 ${showTitleError ? 'border border-red-300' : ''}`}
             aria-invalid={showTitleError}
             aria-describedby={showTitleError ? 'song-title-error' : undefined}
             required
@@ -63,12 +63,12 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExampl
           placeholder="Artist (Optional)"
           value={artistName}
           onChange={(e) => setArtistName(e.target.value)}
-          className="flex-1 clay-inset px-4 py-2.5 text-sm focus:outline-none placeholder-slate-400"
+          className="flex-1 clay-inset px-4 py-3 text-sm focus:outline-none placeholder-slate-400"
         />
         <button
           type="submit"
           disabled={isLoading || !hasSongTitle}
-          className="clay-button px-6 py-2.5 min-w-[100px] flex items-center justify-center"
+          className="clay-button px-6 py-3 min-w-[100px] flex items-center justify-center"
         >
           {isLoading ? (
             <svg className="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
