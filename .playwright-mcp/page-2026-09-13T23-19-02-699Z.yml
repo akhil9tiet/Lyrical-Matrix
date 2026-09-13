@@ -1,0 +1,9 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - heading "Lyrical Matrix" [level=1] [ref=e5]
+    - paragraph [ref=e6]: Uncover the repetition patterns and structures hidden within your favorite songs.
+  - generic [ref=e8]:
+    - textbox "Song name (e.g. Hey Jude)" [ref=e9]
+    - textbox "Artist (Optional)" [ref=e10]
+    - button "Visualize" [ref=e11] [cursor=pointer]
+  - main [ref=e12]
