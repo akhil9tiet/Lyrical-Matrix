@@ -1,43 +1,25 @@
 
 import { WordFrequency } from '../types';
 
-/**
- * Common English stop words to filter out for cleaner visualization
- */
-const STOP_WORDS = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 
-  'is', 'are', 'was', 'were', 'of', 'i', 'you', 'it', 'me', 'my', 'that', 'this',
-  'be', 'am', 'so', 'if', 'as', 'by'
-]);
-
 export const analyzeText = (text: string): { wordData: WordFrequency[], sequence: string[], totalWordCount: number } => {
-  if (!text || text === "[Instrumental]") return { wordData: [], sequence: [], totalWordCount: 0 };
+  if (!text || /^\s*\[instrumental\]\s*$/i.test(text)) {
+    return { wordData: [], sequence: [], totalWordCount: 0 };
+  }
 
-  // 1. Get raw word count for statistics (before filtering)
-  const rawWords = text.trim().split(/\s+/).filter(w => w.length > 0);
-  const totalWordCount = rawWords.length;
-
-  // 2. Normalize: lowercase and remove punctuation except internal apostrophes
-  const cleanText = text.toLowerCase().replace(/[^a-z0-9'\s]/g, ' ');
-
-  // 3. Process words and filter common stop words
-  const words = cleanText.split(/\s+/).filter(w => w.trim().length > 0);
+  // Keep every lyric word. Punctuation separates words, while apostrophes inside
+  // contractions remain part of the token (for example, "ain't").
+  const words: string[] = text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu) || [];
   const counts: Record<string, number> = {};
   const sequence: string[] = [];
   let maxCount = 0;
 
   words.forEach(word => {
-    // Trim leading/trailing apostrophes from the word itself
-    const sanitized = word.replace(/^'+|'+$/g, '');
-    
-    if (sanitized && !STOP_WORDS.has(sanitized)) {
-      sequence.push(sanitized);
-      counts[sanitized] = (counts[sanitized] || 0) + 1;
-      if (counts[sanitized] > maxCount) maxCount = counts[sanitized];
-    }
+    const normalized = word.toLowerCase().replace(/’/g, "'");
+    sequence.push(normalized);
+    counts[normalized] = (counts[normalized] || 0) + 1;
+    if (counts[normalized] > maxCount) maxCount = counts[normalized];
   });
 
-  // 4. Transform to frequency objects
   const wordData: WordFrequency[] = Object.entries(counts).map(([word, count]) => ({
     word,
     count,
@@ -47,5 +29,5 @@ export const analyzeText = (text: string): { wordData: WordFrequency[], sequence
   // Sort by popularity
   wordData.sort((a, b) => b.count - a.count);
 
-  return { wordData, sequence, totalWordCount };
+  return { wordData, sequence, totalWordCount: sequence.length };
 };
