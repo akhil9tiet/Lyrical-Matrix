@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { trackMusicPlayer } from '../services/analytics';
 
 interface MusicPlayerProps {
   previewUrl: string;
+  songName?: string;
+  artistName?: string;
   onToggle?: (isPlaying: boolean) => void;
   onAnalyserReady?: (analyser: AnalyserNode) => void;
 }
 
-const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, onToggle, onAnalyserReady }) => {
+const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistName, onToggle, onAnalyserReady }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -35,6 +38,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, onToggle, onAnaly
       onToggle?.(false);
       setProgress(0);
       setCurrentTime(0);
+      trackMusicPlayer('ended', songName, artistName);
     };
 
     audio.addEventListener('loadedmetadata', updateMetadata);
@@ -81,8 +85,10 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, onToggle, onAnaly
     const nextState = !isPlaying;
     if (nextState) {
       audioRef.current.play();
+      trackMusicPlayer('play', songName, artistName);
     } else {
       audioRef.current.pause();
+      trackMusicPlayer('pause', songName, artistName);
     }
     setIsPlaying(nextState);
     onToggle?.(nextState);

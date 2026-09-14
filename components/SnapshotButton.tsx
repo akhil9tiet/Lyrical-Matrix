@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { toBlob } from 'html-to-image';
+import { trackSnapshot } from '../services/analytics';
 
 interface SnapshotButtonProps {
   targetRef: React.RefObject<HTMLDivElement | null>;
   filename: string;
+  songName?: string;
+  artistName?: string;
 }
 
-const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) => {
+const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, songName, artistName }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
 
@@ -209,8 +212,10 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
       link.href = url;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 500);
+      trackSnapshot('download', songName || filename, artistName);
     } catch (err: any) {
       console.error("Poster generation failed:", err);
+      trackSnapshot('error', songName || filename, artistName);
       alert("Failed to generate image. Please try again.");
     } finally {
       setIsCapturing(false);
@@ -229,12 +234,14 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
           title: `${filename} — Lyrical Matrix`,
           files: [file],
         });
+        trackSnapshot('share', songName || filename, artistName);
       } else {
         // Desktop fallback: copy image to clipboard
         try {
           await navigator.clipboard.write([
             new ClipboardItem({ 'image/png': blob })
           ]);
+          trackSnapshot('share', songName || filename, artistName);
           alert('Image copied to clipboard! Open Instagram and paste it into a new post or story.');
         } catch {
           // If clipboard fails, fall back to download
@@ -244,13 +251,15 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename }) 
           link.href = url;
           link.click();
           setTimeout(() => URL.revokeObjectURL(url), 500);
+          trackSnapshot('share', songName || filename, artistName);
           alert('Image downloaded! Open Instagram and upload it as a new post or story.');
         }
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
-        console.error("Instagram share failed:", err);
-        alert("Failed to share. Please try again.");
+        console.error("Share failed:", err);
+        trackSnapshot('error', songName || filename, artistName);
+        alert("Failed to share image. Please try again.");
       }
     } finally {
       setIsSharing(false);

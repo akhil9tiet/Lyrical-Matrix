@@ -31,7 +31,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExampl
   const handleExampleClick = (example: SongDetails) => {
     setSongName(example.songName);
     setArtistName(example.artistName);
-    onSearch(example);
+    onSearch({ ...example, isExample: true });
   };
 
   return (

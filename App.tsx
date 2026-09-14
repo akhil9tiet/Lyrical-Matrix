@@ -1,11 +1,18 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import SearchForm from './components/SearchForm';
 import Heatmap from './components/Heatmap';
 import { getLyrics } from './services/lyricsService';
 import { fetchSongMetadata } from './services/itunesService';
 import { analyzeText } from './utils/textAnalyzer';
+import { 
+  initAnalytics, 
+  trackSongSearch, 
+  trackSongView, 
+  trackSongSearchError, 
+  trackVisibleSections 
+} from './services/analytics';
 import { AppState, LyricsResult, SongDetails } from './types';
 
 const App: React.FC = () => {
@@ -14,11 +21,18 @@ const App: React.FC = () => {
   const [result, setResult] = useState<LyricsResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  useEffect(() => {
+    initAnalytics();
+  }, []);
+
   const handleSearch = useCallback(async (details: SongDetails) => {
     setAppState(AppState.LOADING);
     setLoadingMsg('Initiating song analysis...');
     setErrorMsg('');
     setResult(null);
+
+    // Track search telemetry in GA4
+    trackSongSearch(details.songName, details.artistName, !!details.isExample);
 
     try {
       // 1. Fetch Metadata (iTunes) - Essential for validated names, artwork, and preview
@@ -52,9 +66,25 @@ const App: React.FC = () => {
         previewUrl: itunesData.previewUrl
       });
       setAppState(AppState.SUCCESS);
+
+      // Track successful song view in GA4
+      trackSongView({
+        songName: finalSongName,
+        artistName: finalArtistName,
+        releaseYear: itunesData.releaseYear,
+        totalWordCount,
+        hasPreview: !!itunesData.previewUrl
+      });
+
+      // Refresh section tracking for dynamically rendered components
+      setTimeout(() => trackVisibleSections(), 300);
     } catch (error: any) {
       setAppState(AppState.ERROR);
-      setErrorMsg(error.message || "Something went wrong. Please try another song.");
+      const errText = error.message || "Something went wrong. Please try another song.";
+      setErrorMsg(errText);
+      
+      // Track search error in GA4
+      trackSongSearchError(details.songName, details.artistName, errText);
     }
   }, []);
 

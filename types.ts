@@ -8,6 +8,7 @@ export interface WordFrequency {
 export interface SongDetails {
   songName: string;
   artistName: string;
+  isExample?: boolean;
 }
 
 export interface LyricsResult {

@@ -389,6 +389,8 @@ const Heatmap: React.FC<HeatmapProps> = ({
             {previewUrl && (
               <MusicPlayer 
                 previewUrl={previewUrl} 
+                songName={songName}
+                artistName={artistName}
                 onToggle={setIsPlaying} 
                 onAnalyserReady={(node) => setAnalyser(node)}
               />
@@ -401,6 +403,8 @@ const Heatmap: React.FC<HeatmapProps> = ({
       <SnapshotButton 
         targetRef={cardRef} 
         filename={songName || 'lyrical_matrix'} 
+        songName={songName}
+        artistName={artistName}
       />
     </div>
   );
