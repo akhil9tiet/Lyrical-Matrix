@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SongDetails } from '../types';
+import { fetchTopSongs } from '../services/itunesService';
 
 interface SearchFormProps {
   onSearch: (details: SongDetails) => void;
@@ -7,19 +8,40 @@ interface SearchFormProps {
   showExamples: boolean;
 }
 
-const EXAMPLE_SONGS: SongDetails[] = [
-  { songName: 'Hotel California', artistName: 'Eagles' },
-  { songName: 'Yellow', artistName: 'Coldplay' },
-  { songName: "Ain't No Sunshine", artistName: 'Bill Withers' },
-  { songName: "It's My Life", artistName: 'Talk Talk' },
+const FALLBACK_SONGS: SongDetails[] = [
+  { songName: 'APT.', artistName: 'ROSÉ & Bruno Mars', isExample: true },
+  { songName: 'Beautiful Things', artistName: 'Benson Boone', isExample: true },
+  { songName: 'Good Luck, Babe!', artistName: 'Chappell Roan', isExample: true },
+  { songName: 'Espresso', artistName: 'Sabrina Carpenter', isExample: true },
 ];
 
 const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExamples }) => {
   const [songName, setSongName] = useState('');
   const [artistName, setArtistName] = useState('');
   const [titleTouched, setTitleTouched] = useState(false);
+  const [exampleSongs, setExampleSongs] = useState(FALLBACK_SONGS);
+  const [chartDate, setChartDate] = useState<string | undefined>();
   const hasSongTitle = songName.trim().length > 0;
   const showTitleError = titleTouched && !hasSongTitle;
+
+  useEffect(() => {
+    if (!showExamples) return;
+
+    let isCurrent = true;
+    fetchTopSongs()
+      .then(({ songs, updatedAt }) => {
+        if (!isCurrent || songs.length === 0) return;
+        setExampleSongs(songs);
+        setChartDate(updatedAt);
+      })
+      .catch(() => {
+        // Keep the fallback examples available when the public chart feed is unavailable.
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [showExamples]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,9 +105,9 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExampl
       {showExamples && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2" aria-label="Example songs">
           <span className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
-            Try an example
+            {chartDate ? `Apple Music · ${new Date(chartDate).toLocaleDateString()}` : 'Apple Music · Top songs'}
           </span>
-          {EXAMPLE_SONGS.map((example) => (
+          {exampleSongs.map((example) => (
             <button
               key={example.songName}
               type="button"

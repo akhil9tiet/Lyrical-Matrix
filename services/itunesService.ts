@@ -1,4 +1,6 @@
 
+import { SongDetails } from '../types';
+
 export interface iTunesMetadata {
   artworkUrl?: string;
   previewUrl?: string;
@@ -6,6 +8,31 @@ export interface iTunesMetadata {
   artistName?: string;
   trackName?: string;
 }
+
+export interface AppleChartResult {
+  songs: SongDetails[];
+  updatedAt?: string;
+}
+
+export const fetchTopSongs = async (country = 'us', limit = 4): Promise<AppleChartResult> => {
+  const url = `https://rss.applemarketingtools.com/api/v2/${country}/music/most-played/${limit}/songs.json`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Apple Music chart request failed');
+
+  const data = await response.json();
+  const songs = (data.feed?.results || [])
+    .map((track: { name?: string; artistName?: string }) => ({
+      songName: track.name || '',
+      artistName: track.artistName || '',
+      isExample: true
+    }))
+    .filter((song: SongDetails) => song.songName && song.artistName);
+
+  return {
+    songs,
+    updatedAt: data.feed?.updated
+  };
+};
 
 export const fetchSongMetadata = async (song: string, artist: string): Promise<iTunesMetadata> => {
   const searchTerm = `${artist} ${song}`.trim();
