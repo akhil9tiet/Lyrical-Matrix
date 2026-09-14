@@ -6,8 +6,8 @@ const Header: React.FC = () => {
       <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-slate-700 drop-shadow-sm">
         Lyrical <span className="text-indigo-500">Matrix</span>
       </h1>
-      <p className="text-slate-500 max-w-lg mx-auto font-medium">
-        Uncover the repetition patterns and structures hidden within your favorite songs.
+      <p className="text-sm leading-tight text-slate-500 max-w-lg mx-auto font-medium">
+        Uncover the patterns and structures hidden within your songs.
       </p>
     </header>
   );
