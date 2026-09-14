@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { trackMusicPlayer } from '../services/analytics';
+import { guess } from 'web-audio-beat-detector';
 
 interface MusicPlayerProps {
   previewUrl: string;
@@ -7,9 +8,10 @@ interface MusicPlayerProps {
   artistName?: string;
   onToggle?: (isPlaying: boolean) => void;
   onAnalyserReady?: (analyser: AnalyserNode) => void;
+  onBeat?: (beat: { intensity: number; count: number }) => void;
 }
 
-const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistName, onToggle, onAnalyserReady }) => {
+const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistName, onToggle, onAnalyserReady, onBeat }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -17,6 +19,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const beatAnimationRef = useRef<number | null>(null);
+  const beatGridRef = useRef<{ bpm: number; offset: number } | null>(null);
+  const beatCountRef = useRef(0);
+  const lastBeatTimeRef = useRef(-Infinity);
+  const fallbackHistoryRef = useRef<number[]>([]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -52,6 +60,12 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
     };
   }, [onToggle]);
 
+  useEffect(() => {
+    return () => {
+      if (beatAnimationRef.current !== null) cancelAnimationFrame(beatAnimationRef.current);
+    };
+  }, []);
+
   const initAudioContext = () => {
     if (audioContextRef.current || !audioRef.current) return;
 
@@ -66,10 +80,80 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
 
     audioContextRef.current = ctx;
     sourceRef.current = source;
+    analyserRef.current = analyser;
     
     if (onAnalyserReady) {
       onAnalyserReady(analyser);
     }
+  };
+
+  const prepareBeatGrid = async () => {
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+
+    try {
+      const response = await fetch(previewUrl);
+      if (!response.ok) throw new Error(`Beat analysis request failed: ${response.status}`);
+      const audioBuffer = await ctx.decodeAudioData(await response.arrayBuffer());
+      const { bpm, offset } = await guess(audioBuffer);
+      if (Number.isFinite(bpm) && bpm > 0 && Number.isFinite(offset)) {
+        beatGridRef.current = { bpm, offset };
+      }
+    } catch (error) {
+      // Live analyser fallback still provides beat pulses when preview decoding is unavailable.
+      beatGridRef.current = null;
+    }
+  };
+
+  const emitBeat = (intensity: number) => {
+    beatCountRef.current += 1;
+    onBeat?.({
+      intensity: Math.min(1, Math.max(0.25, intensity)),
+      count: beatCountRef.current
+    });
+  };
+
+  const startBeatDetection = () => {
+    const audio = audioRef.current;
+    const analyser = analyserRef.current;
+    if (!audio || !analyser) return;
+
+    const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+    fallbackHistoryRef.current = [];
+
+    const detect = () => {
+      if (!audioRef.current || audioRef.current.paused) return;
+
+      analyser.getByteFrequencyData(frequencyData);
+      const bassBinCount = Math.max(1, Math.floor(frequencyData.length * 0.1));
+      let bassTotal = 0;
+      for (let index = 0; index < bassBinCount; index += 1) bassTotal += frequencyData[index];
+      const bassAverage = bassTotal / bassBinCount;
+      const grid = beatGridRef.current;
+
+      if (grid) {
+        const interval = 60 / grid.bpm;
+        const elapsed = audio.currentTime - grid.offset;
+        if (elapsed >= 0) {
+          const beatTime = grid.offset + Math.floor(elapsed / interval) * interval;
+          if (beatTime > lastBeatTimeRef.current && audio.currentTime - lastBeatTimeRef.current > interval * 0.5) {
+            lastBeatTimeRef.current = beatTime;
+            emitBeat(Math.max(0.35, bassAverage / 255));
+          }
+        }
+      } else {
+        const history = fallbackHistoryRef.current;
+        const historyAverage = history.reduce((sum, value) => sum + value, 0) / Math.max(1, history.length);
+        if (bassAverage > Math.max(35, historyAverage * 1.28)) emitBeat(bassAverage / 255);
+        history.push(bassAverage);
+        if (history.length > 45) history.shift();
+      }
+
+      beatAnimationRef.current = requestAnimationFrame(detect);
+    };
+
+    if (beatAnimationRef.current !== null) cancelAnimationFrame(beatAnimationRef.current);
+    beatAnimationRef.current = requestAnimationFrame(detect);
   };
 
   const togglePlay = () => {
@@ -85,6 +169,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
     const nextState = !isPlaying;
     if (nextState) {
       audioRef.current.play();
+      if (!beatGridRef.current) void prepareBeatGrid();
+      startBeatDetection();
       trackMusicPlayer('play', songName, artistName);
     } else {
       audioRef.current.pause();
@@ -102,6 +188,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
     onToggle?.(false);
     setProgress(0);
     setCurrentTime(0);
+    beatCountRef.current = 0;
+    lastBeatTimeRef.current = -Infinity;
   };
 
   const formatTime = (time: number) => {

@@ -38,13 +38,24 @@ const Heatmap: React.FC<HeatmapProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [beatStyle, setBeatStyle] = useState({ x: 50, y: 50, intensity: 0 });
   
   const animationRef = useRef<number>(0);
   const beatPulseRef = useRef<number>(0);
-  const beatHistoryRef = useRef<number[]>([]);
+  const beatTargetRef = useRef({ x: 50, y: 50 });
   
   const scaledPointsRef = useRef<{x: number; y: number; color: string; freq: number; revealIdx: number}[]>([]);
   const gradientCacheRef = useRef<Map<string, CanvasGradient>>(new Map());
+
+  const handleBeat = (beat: { intensity: number; count: number }) => {
+    const angle = beat.count * 2.39996;
+    const radius = 28 + (beat.count % 3) * 7;
+    const x = 50 + Math.cos(angle) * radius;
+    const y = 50 + Math.sin(angle) * radius;
+    beatTargetRef.current = { x, y };
+    beatPulseRef.current = beat.intensity;
+    setBeatStyle({ x, y, intensity: beat.intensity });
+  };
 
   const colorScale = useMemo(() => {
     return d3.scaleLinear<string>()
@@ -152,29 +163,9 @@ const Heatmap: React.FC<HeatmapProps> = ({
       let intensity = 0;
       if (analyser && isPlaying) {
         analyser.getByteFrequencyData(freqData);
-        const bassRange = Math.floor(freqData.length * 0.1);
-        let bassSum = 0;
-        for (let i = 0; i < bassRange; i++) bassSum += freqData[i];
-        const bassAvg = bassSum / Math.max(1, bassRange);
-        
-        beatHistoryRef.current.push(bassAvg);
-        if (beatHistoryRef.current.length > 60) beatHistoryRef.current.shift();
-        
-        const histAvg = beatHistoryRef.current.reduce((a,b) => a+b, 0) / Math.max(1, beatHistoryRef.current.length);
-        if (bassAvg > histAvg * 1.3 && bassAvg > 35) {
-          beatPulseRef.current = 1.35;
-        } else {
-          beatPulseRef.current *= 0.94;
-        }
+        beatPulseRef.current *= 0.92;
         intensity = Number.isFinite(beatPulseRef.current) ? beatPulseRef.current : 0;
       }
-
-      const isInitialGlitch = loadProgress < 0.15;
-      const effectiveIntensity = Math.max(intensity, isInitialGlitch ? Math.random() * 0.8 : 0);
-      const t = Number.isFinite(time) ? time * 0.001 : 0;
-      
-      const revolveX = innerSize / 2 + Math.cos(t * 0.95) * (innerSize / 3.2) + Math.sin(t * 4.2) * (15 * effectiveIntensity);
-      const revolveY = innerSize / 2 + Math.sin(t * 0.75) * (innerSize / 3.2) + Math.cos(t * 3.2) * (15 * effectiveIntensity);
 
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = '#010204';
@@ -183,36 +174,16 @@ const Heatmap: React.FC<HeatmapProps> = ({
       ctx.save();
       ctx.translate(padding, padding);
 
-      if (effectiveIntensity > 1.1) {
-        ctx.translate((Math.random() - 0.5) * 6 * effectiveIntensity, (Math.random() - 0.5) * 6 * effectiveIntensity);
-      }
-
-      if ((isPlaying || isInitialGlitch) && effectiveIntensity > 0.05 && innerSize > 0) {
-        if (Number.isFinite(revolveX) && Number.isFinite(revolveY)) {
-          ctx.globalCompositeOperation = 'screen';
-          const haloSize = Math.max(0.1, innerSize * (0.45 + effectiveIntensity * 0.7));
-          const hKey = `h-${Math.floor(revolveX/10)}-${Math.floor(revolveY/10)}-${Math.floor(haloSize/10)}`;
-          const haloGrad = getOrCreateGradient(hKey, () => {
-            const grad = ctx.createRadialGradient(revolveX, revolveY, 0, revolveX, revolveY, haloSize);
-            const alpha = (isPlaying ? 0.22 : 0.45) * effectiveIntensity;
-            addSafeColorStop(grad, 0, `rgba(99, 102, 241, ${alpha})`);
-            addSafeColorStop(grad, 0.5, `rgba(67, 56, 202, ${alpha * 0.5})`);
-            addSafeColorStop(grad, 1, 'rgba(0,0,0,0)');
-            return grad;
-          });
-          if (haloGrad) {
-            ctx.fillStyle = haloGrad;
-            ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
-          }
-        }
-      }
-
       const wavePos = loadProgress * 1.6; 
       const scaledPoints = scaledPointsRef.current;
+      const focusX = innerSize * (beatTargetRef.current.x / 100);
+      const focusY = innerSize * (beatTargetRef.current.y / 100);
+      const focusRadius = innerSize * (0.3 + intensity * 0.18);
 
       ctx.globalCompositeOperation = 'screen';
       
       const batches = new Map<string, Path2D>();
+      const focusBatches = new Map<string, Path2D>();
       for (const p of scaledPoints) {
         const dist = wavePos - p.revealIdx;
         let scale = BASE_SCALE;
@@ -238,6 +209,18 @@ const Heatmap: React.FC<HeatmapProps> = ({
         const path = batches.get(p.color)!;
         path.moveTo(x + currentRadius, y);
         path.arc(x, y, currentRadius, 0, Math.PI * 2);
+
+        if (intensity > 0.05) {
+          const distance = Math.hypot(x - focusX, y - focusY);
+          const focus = Math.max(0, 1 - distance / focusRadius);
+          if (focus > 0.08) {
+            const bloomRadius = currentRadius * (1 + focus * (2.5 + intensity * 1.8));
+            if (!focusBatches.has(p.color)) focusBatches.set(p.color, new Path2D());
+            const focusPath = focusBatches.get(p.color)!;
+            focusPath.moveTo(x + bloomRadius, y);
+            focusPath.arc(x, y, bloomRadius, 0, Math.PI * 2);
+          }
+        }
       }
 
       ctx.shadowBlur = 5;
@@ -247,6 +230,23 @@ const Heatmap: React.FC<HeatmapProps> = ({
         ctx.fill(path);
       });
       ctx.shadowBlur = 0;
+
+      if (focusBatches.size > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        focusBatches.forEach((path, color) => {
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 48 + intensity * 80;
+          ctx.globalAlpha = 0.2 + intensity * 0.22;
+          ctx.fill(path);
+          ctx.shadowColor = '#fff';
+          ctx.shadowBlur = 18 + intensity * 28;
+          ctx.globalAlpha = 0.46 + intensity * 0.2;
+          ctx.fill(path);
+        });
+        ctx.restore();
+      }
 
       if (loadProgress < 1 && innerSize > 0) {
         ctx.save();
@@ -265,22 +265,6 @@ const Heatmap: React.FC<HeatmapProps> = ({
           ctx.fillRect(0, 0, innerSize, innerSize);
         } catch (e) {}
         ctx.restore();
-      }
-
-      if (isPlaying && intensity > 0.1 && innerSize > 0) {
-        if (Number.isFinite(revolveX) && Number.isFinite(revolveY)) {
-          ctx.globalCompositeOperation = 'screen';
-          const bloomSize = Math.max(0.1, innerSize * (0.6 + intensity * 0.55));
-          const bloomAlpha = Math.max(0, 0.25 + intensity * 0.35);
-          try {
-            const bloomGrad = ctx.createRadialGradient(revolveX, revolveY, 0, revolveX, revolveY, bloomSize);
-            addSafeColorStop(bloomGrad, 0, `rgba(255, 255, 255, ${bloomAlpha})`);
-            addSafeColorStop(bloomGrad, 0.4, `rgba(139, 92, 246, ${bloomAlpha * 0.6})`);
-            addSafeColorStop(bloomGrad, 1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = bloomGrad;
-            ctx.fillRect(-padding, -padding, dimensions.width, dimensions.height);
-          } catch (e) {}
-        }
       }
 
       ctx.globalCompositeOperation = 'multiply';
@@ -311,7 +295,10 @@ const Heatmap: React.FC<HeatmapProps> = ({
       <div 
         id="matrix-capture-card"
         ref={cardRef} 
-        className="w-full clay-card p-6 flex flex-col gap-6 relative bg-[#F5F5F5]"
+        className="w-full clay-card p-6 flex flex-col gap-6 relative bg-[#F5F5F5] transition-[box-shadow,border-color] duration-150"
+        style={{
+          '--beat-intensity': beatStyle.intensity
+        } as React.CSSProperties}
       >
         <div className="flex gap-4 items-start w-full">
           <div className="relative flex-shrink-0 group">
@@ -393,6 +380,7 @@ const Heatmap: React.FC<HeatmapProps> = ({
                 artistName={artistName}
                 onToggle={setIsPlaying} 
                 onAnalyserReady={(node) => setAnalyser(node)}
+                onBeat={handleBeat}
               />
             )}
           </div>
