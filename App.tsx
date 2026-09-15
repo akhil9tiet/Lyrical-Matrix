@@ -123,10 +123,14 @@ const App: React.FC = () => {
     }
   }, []);
 
-const zoomScale = isZoomedOut
+const isNarrowScreen = viewport.width < 640;
+  const zoomScale = isZoomedOut
     ? zoomOutScale
-    : Math.min(2.2, Math.max(1.15, viewport.height / 520));
-  const zoomTransform = `scale(${zoomScale}) translateY(${isZoomedOut ? '0' : '6%'})`;
+    : isNarrowScreen
+      ? Math.max(1.08, Math.min(1.2, viewport.width / 330))
+      : Math.min(2.2, Math.max(1.2, viewport.height / 520));
+  const zoomShift = isZoomedOut ? '0' : isNarrowScreen ? '3%' : '6%';
+  const zoomTransform = `scale(${zoomScale}) translateY(${zoomShift})`;
 
   return (
     <div 
