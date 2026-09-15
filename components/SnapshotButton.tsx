@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { toBlob } from 'html-to-image';
 import { trackSnapshot } from '../services/analytics';
 
+const INSTAGRAM_TAGS = '#lyricalMatrix #theAiNoise';
+
 interface SnapshotButtonProps {
   targetRef: React.RefObject<HTMLDivElement | null>;
   filename: string;
@@ -12,6 +14,16 @@ interface SnapshotButtonProps {
 const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, songName, artistName }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [shareStatus, setShareStatus] = useState('');
+
+  const downloadBlob = (blob: Blob, safeName: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = safeName;
+    link.href = url;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  };
 
   const generatePosterBlob = async (): Promise<Blob> => {
     const sourceNode = targetRef.current;
@@ -137,17 +149,53 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, so
         });
       }
 
-      // 3. ADD WATERMARK / BRANDING
-      const watermark = document.createElement('div');
-      Object.assign(watermark.style, {
+      // 3. ADD HASHTAGS + WATERMARK / BRANDING
+      // The hashtags are baked into the image itself so they always travel with the poster.
+      const footer = document.createElement('div');
+      Object.assign(footer.style, {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '14px',
+        width: '100%',
+        paddingTop: '20px',
+        borderTop: '1px solid #e2e8f0',
+        marginTop: '10px',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      });
+
+      const tagsBar = document.createElement('div');
+      Object.assign(tagsBar.style, {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px',
+        flexWrap: 'wrap',
+        width: '100%'
+      });
+      ['#lyricalMatrix', '#theAiNoise'].forEach((tag, index) => {
+        const tagEl = document.createElement('span');
+        tagEl.textContent = tag;
+        Object.assign(tagEl.style, {
+          fontSize: '17px',
+          fontWeight: '800',
+          letterSpacing: '0.02em',
+          color: index === 0 ? '#6366f1' : '#64748b',
+          background: index === 0 ? 'rgba(99,102,241,0.12)' : 'rgba(100,116,139,0.1)',
+          padding: '6px 14px',
+          borderRadius: '999px'
+        });
+        tagsBar.appendChild(tagEl);
+      });
+      footer.appendChild(tagsBar);
+
+      const brandRow = document.createElement('div');
+      Object.assign(brandRow.style, {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '8px',
-        paddingTop: '20px',
-        borderTop: '1px solid #e2e8f0',
-        marginTop: '10px',
-        width: '100%',
+        width: '100%'
       });
       // Logo icon (small matrix grid)
       const logoSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -165,7 +213,7 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, so
         <rect x="5.75" y="11.5" width="4.5" height="4.5" rx="1" fill="#6366f1" opacity="0.6"/>
         <rect x="11.5" y="11.5" width="4.5" height="4.5" rx="1" fill="#6366f1"/>
       `;
-      watermark.appendChild(logoSvg);
+      brandRow.appendChild(logoSvg);
       const brandText = document.createElement('span');
       Object.assign(brandText.style, {
         fontSize: '13px',
@@ -175,8 +223,9 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, so
         fontFamily: 'system-ui, -apple-system, sans-serif',
       });
       brandText.textContent = 'Follow @ai_ai_capitan on Instagram';
-      watermark.appendChild(brandText);
-      clone.appendChild(watermark);
+      brandRow.appendChild(brandText);
+      footer.appendChild(brandRow);
+      clone.appendChild(footer);
 
       // 4. GENERATE IMAGE
       // We use a small delay to ensure styles and images are fully processed in the clone
@@ -206,12 +255,7 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, so
     setIsCapturing(true);
     try {
       const blob = await generatePosterBlob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.download = `${filename.replace(/\s+/g, '_')}_matrix.png`;
-      link.href = url;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 500);
+      downloadBlob(blob, `${filename.replace(/\s+/g, '_')}_matrix.png`);
       trackSnapshot('download', songName || filename, artistName);
     } catch (err: any) {
       console.error("Poster generation failed:", err);
@@ -224,42 +268,57 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, so
 
   const handleShareInstagram = async () => {
     setIsSharing(true);
+    setShareStatus('');
     try {
       const blob = await generatePosterBlob();
-      const file = new File([blob], `${filename.replace(/\s+/g, '_')}_matrix.png`, { type: 'image/png' });
+      const safeName = `${filename.replace(/\s+/g, '_')}_matrix.png`;
+      const file = new File([blob], safeName, { type: 'image/png' });
 
-      // Use Web Share API if available (mobile — enables direct share to Instagram)
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      const hasNativeFileShare =
+        typeof navigator.share === 'function' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] });
+
+      // 1) Native share sheet (mobile / desktop with file sharing).
+      // Instagram is a first-class target here; the user picks Story / Post / Reel.
+      if (hasNativeFileShare) {
         await navigator.share({
           title: `${filename} — Lyrical Matrix`,
+          text: `${filename} — Lyrical Matrix. ${INSTAGRAM_TAGS}`,
           files: [file],
         });
         trackSnapshot('share', songName || filename, artistName);
-      } else {
-        // Desktop fallback: copy image to clipboard
+        setShareStatus('Poster ready. Pick Instagram in the share menu (Story, Post or Reel) — the #lyricalMatrix tags are baked into the image.');
+        return;
+      }
+
+      // 2) Desktop: open Instagram so the user is already there, and put the
+      //    poster on the clipboard ready to paste into a Post, Story or Reel.
+      window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+
+      let copiedToClipboard = false;
+      if (typeof ClipboardItem !== 'undefined') {
         try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
-          ]);
-          trackSnapshot('share', songName || filename, artistName);
-          alert('Image copied to clipboard! Open Instagram and paste it into a new post or story.');
-        } catch {
-          // If clipboard fails, fall back to download
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.download = `${filename.replace(/\s+/g, '_')}_matrix.png`;
-          link.href = url;
-          link.click();
-          setTimeout(() => URL.revokeObjectURL(url), 500);
-          trackSnapshot('share', songName || filename, artistName);
-          alert('Image downloaded! Open Instagram and upload it as a new post or story.');
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          copiedToClipboard = true;
+        } catch (err) {
+          copiedToClipboard = false;
         }
+      }
+
+      if (copiedToClipboard) {
+        trackSnapshot('share', songName || filename, artistName);
+        setShareStatus('Instagram opened. Paste (Ctrl/Cmd+V) the image into a Post, Story or Reel — the #lyricalMatrix tags are baked into the image.');
+      } else {
+        downloadBlob(blob, safeName);
+        trackSnapshot('share', songName || filename, artistName);
+        setShareStatus('Instagram opened and the poster was downloaded. Upload it as a Post, Story or Reel — the #lyricalMatrix tags are baked into the image.');
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         console.error("Share failed:", err);
         trackSnapshot('error', songName || filename, artistName);
-        alert("Failed to share image. Please try again.");
+        alert("Failed to share. Use Download Poster to save the image, then upload it to Instagram.");
       }
     } finally {
       setIsSharing(false);
@@ -267,47 +326,54 @@ const SnapshotButton: React.FC<SnapshotButtonProps> = ({ targetRef, filename, so
   };
 
   return (
-    <div className="flex justify-center gap-4 mt-10 pb-20 flex-wrap">
-      <button 
-        onClick={handleDownload} 
-        disabled={isCapturing || isSharing}
-        className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
-      >
-        {isCapturing ? (
-          <svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        ) : (
-          <svg className="w-8 h-8 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-          </svg>
-        )}
-        <span className="font-black tracking-widest uppercase">
-          {isCapturing ? 'Generating...' : 'Download Poster'}
-        </span>
-      </button>
-      <button
-        onClick={handleShareInstagram}
-        disabled={isCapturing || isSharing}
-        className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
-      >
-        {isSharing ? (
-          <svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        ) : (
-          <svg className="w-8 h-8 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="2" y="2" width="20" height="20" rx="5" />
-            <circle cx="12" cy="12" r="5" />
-            <circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none" />
-          </svg>
-        )}
-        <span className="font-black tracking-widest uppercase">
-          {isSharing ? 'Preparing...' : 'Share to Instagram'}
-        </span>
-      </button>
+    <div className="flex flex-col justify-center gap-4 mt-10 pb-20">
+      <div className="flex justify-center gap-4 flex-wrap">
+        <button 
+          onClick={handleDownload} 
+          disabled={isCapturing || isSharing}
+          className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {isCapturing ? (
+            <svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+          )}
+          <span className="font-black tracking-widest uppercase">
+            {isCapturing ? 'Generating...' : 'Download Poster'}
+          </span>
+        </button>
+        <button
+          onClick={handleShareInstagram}
+          disabled={isCapturing || isSharing}
+          className="clay-button px-14 py-6 text-sm flex items-center gap-4 group active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {isSharing ? (
+            <svg className="animate-spin h-6 w-6 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 group-hover:scale-110 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="2" y="2" width="20" height="20" rx="5" />
+              <circle cx="12" cy="12" r="5" />
+              <circle cx="17.5" cy="6.5" r="1.5" fill="currentColor" stroke="none" />
+            </svg>
+          )}
+          <span className="font-black tracking-widest uppercase">
+            {isSharing ? 'Preparing...' : 'Share to Instagram'}
+          </span>
+        </button>
+      </div>
+      {shareStatus && (
+        <p className="w-full max-w-xl mx-auto text-center text-xs font-bold text-slate-500 leading-relaxed">
+          {shareStatus}
+        </p>
+      )}
     </div>
   );
 };
