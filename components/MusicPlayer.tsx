@@ -22,6 +22,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
   const analyserRef = useRef<AnalyserNode | null>(null);
   const beatAnimationRef = useRef<number | null>(null);
   const beatGridRef = useRef<{ bpm: number; offset: number } | null>(null);
+  const gridPhaseRef = useRef<number>(0);
+  const gridIndexRef = useRef<number>(-1);
+  const beatIntervalRef = useRef<number>(0);
   const beatCountRef = useRef(0);
   const lastBeatTimeRef = useRef(-Infinity);
   const fallbackHistoryRef = useRef<number[]>([]);
@@ -98,17 +101,20 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
       const { bpm, offset } = await guess(audioBuffer);
       if (Number.isFinite(bpm) && bpm > 0 && Number.isFinite(offset)) {
         beatGridRef.current = { bpm, offset };
+        gridPhaseRef.current = offset;
+        beatIntervalRef.current = 60 / bpm;
       }
     } catch (error) {
       // Live analyser fallback still provides beat pulses when preview decoding is unavailable.
       beatGridRef.current = null;
+      beatIntervalRef.current = 0;
     }
   };
 
   const emitBeat = (intensity: number) => {
     beatCountRef.current += 1;
     onBeat?.({
-      intensity: Math.min(1, Math.max(0.25, intensity)),
+      intensity: Math.min(1, Math.max(0.3, intensity)),
       count: beatCountRef.current
     });
   };
@@ -118,41 +124,80 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
     const analyser = analyserRef.current;
     if (!audio || !analyser) return;
 
+    if (beatAnimationRef.current !== null) cancelAnimationFrame(beatAnimationRef.current);
+
     const frequencyData = new Uint8Array(analyser.frequencyBinCount);
     fallbackHistoryRef.current = [];
 
     const detect = () => {
-      if (!audioRef.current || audioRef.current.paused) return;
+      const audioNow = audioRef.current;
+      if (!audioNow || audioNow.paused) {
+        beatAnimationRef.current = null;
+        return;
+      }
 
       analyser.getByteFrequencyData(frequencyData);
-      const bassBinCount = Math.max(1, Math.floor(frequencyData.length * 0.1));
-      let bassTotal = 0;
-      for (let index = 0; index < bassBinCount; index += 1) bassTotal += frequencyData[index];
-      const bassAverage = bassTotal / bassBinCount;
-      const grid = beatGridRef.current;
 
-      if (grid) {
-        const interval = 60 / grid.bpm;
-        const elapsed = audio.currentTime - grid.offset;
-        if (elapsed >= 0) {
-          const beatTime = grid.offset + Math.floor(elapsed / interval) * interval;
-          if (beatTime > lastBeatTimeRef.current && audio.currentTime - lastBeatTimeRef.current > interval * 0.5) {
-            lastBeatTimeRef.current = beatTime;
-            emitBeat(Math.max(0.35, bassAverage / 255));
+      // Bass-band energy around the kick frequencies (approximated by the lowest bins).
+      const bassBinCount = Math.max(1, Math.floor(frequencyData.length * 0.06));
+      let bassTotal = 0;
+      let bassPeak = 0;
+      for (let index = 0; index < bassBinCount; index += 1) {
+        const value = frequencyData[index];
+        bassTotal += value;
+        if (value > bassPeak) bassPeak = value;
+      }
+      const bassAverage = bassTotal / bassBinCount;
+
+      const now = audioNow.currentTime;
+      const history = fallbackHistoryRef.current;
+      const historyAverage = history.reduce((sum, value) => sum + value, 0) / Math.max(1, history.length);
+
+      // Onset = adaptive-threshold cross in the bass band that also has a sharp transient.
+      const isOnset = history.length > 10 && bassPeak >= 120 && bassAverage > Math.max(36, historyAverage * 1.25);
+      history.push(bassAverage);
+      if (history.length > 45) history.shift();
+
+      const grid = beatGridRef.current;
+      const interval = beatIntervalRef.current;
+
+      if (grid && interval > 0) {
+        // Metronome safety: fire when none of the preceding onset windows produced a beat.
+        const nextGridTime = gridPhaseRef.current + (gridIndexRef.current + 1) * interval;
+        const ready = interval <= 0 || now - lastBeatTimeRef.current >= interval * 0.5;
+
+        if (ready && isOnset) {
+          const kNearest = Math.round((now - gridPhaseRef.current) / interval);
+          const isNewBeat = kNearest > gridIndexRef.current;
+          if (isNewBeat) {
+            emitBeat(Math.max(0.3, bassAverage / 255));
+            lastBeatTimeRef.current = now;
+            gridIndexRef.current = kNearest;
+
+            // Phase-lock: pull the grid toward the genuinely detected onset.
+            const deviation = now - (gridPhaseRef.current + kNearest * interval);
+            if (Math.abs(deviation) > 0.004) {
+              const pull = Math.min(0.05, Math.abs(deviation) * 0.15);
+              gridPhaseRef.current += Math.sign(deviation) * pull;
+            }
           }
+        } else if (ready && now >= nextGridTime && bassPeak >= 60) {
+          // Drifted past the prediction with no detected onset: nudge the grid forward.
+          gridIndexRef.current += 1;
+          emitBeat(Math.max(0.3, Math.min(0.55, bassAverage / 255)));
+          lastBeatTimeRef.current = now;
         }
       } else {
-        const history = fallbackHistoryRef.current;
-        const historyAverage = history.reduce((sum, value) => sum + value, 0) / Math.max(1, history.length);
-        if (bassAverage > Math.max(35, historyAverage * 1.28)) emitBeat(bassAverage / 255);
-        history.push(bassAverage);
-        if (history.length > 45) history.shift();
+        const cooldown = interval > 0 ? interval * 0.5 : 0.12;
+        if (isOnset && now - lastBeatTimeRef.current >= cooldown) {
+          emitBeat(bassAverage / 255);
+          lastBeatTimeRef.current = now;
+        }
       }
 
       beatAnimationRef.current = requestAnimationFrame(detect);
     };
 
-    if (beatAnimationRef.current !== null) cancelAnimationFrame(beatAnimationRef.current);
     beatAnimationRef.current = requestAnimationFrame(detect);
   };
 
@@ -190,6 +235,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({ previewUrl, songName, artistN
     setCurrentTime(0);
     beatCountRef.current = 0;
     lastBeatTimeRef.current = -Infinity;
+    gridIndexRef.current = -1;
+    fallbackHistoryRef.current = [];
   };
 
   const formatTime = (time: number) => {

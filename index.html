@@ -19,8 +19,7 @@
         box-shadow: 
           16px 16px 32px #bebebe, 
           -16px -16px 32px #ffffff,
-          inset 1px 1px 2px rgba(255,255,255,0.8),
-          0 0 calc(10px + var(--beat-intensity, 0) * 22px) rgba(244, 114, 182, calc(var(--beat-intensity, 0) * 0.32));
+          inset 1px 1px 2px rgba(255,255,255,0.8);
         border: 1px solid rgba(0,0,0,0.03);
         position: relative;
         overflow: hidden;
@@ -107,6 +106,19 @@
 
       .zoom-container.zoom-transition {
         transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      /* Full-dashboard beat-reactive glow */
+      #beat-glow {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 30;
+        opacity: 0;
+        will-change: opacity;
+        background:
+          radial-gradient(55% 45% at var(--glow-x, 50%) var(--glow-y, 50%), rgba(244, 114, 182, 0.5), rgba(244, 114, 182, 0) 72%),
+          radial-gradient(85% 65% at var(--glow-x, 50%) var(--glow-y, 50%), rgba(99, 102, 241, 0.32), rgba(99, 102, 241, 0) 72%);
       }
 
       /* Custom scrollbar for light mode */

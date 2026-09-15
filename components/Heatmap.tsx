@@ -38,7 +38,6 @@ const Heatmap: React.FC<HeatmapProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-  const [beatStyle, setBeatStyle] = useState({ x: 50, y: 50, intensity: 0 });
   
   const animationRef = useRef<number>(0);
   const beatPulseRef = useRef<number>(0);
@@ -49,12 +48,14 @@ const Heatmap: React.FC<HeatmapProps> = ({
 
   const handleBeat = (beat: { intensity: number; count: number }) => {
     const angle = beat.count * 2.39996;
-    const radius = 28 + (beat.count % 3) * 7;
+    const radius = 5 + (beat.count % 5) * 10;
     const x = 50 + Math.cos(angle) * radius;
     const y = 50 + Math.sin(angle) * radius;
     beatTargetRef.current = { x, y };
     beatPulseRef.current = beat.intensity;
-    setBeatStyle({ x, y, intensity: beat.intensity });
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--glow-x', `${x}%`);
+    rootStyle.setProperty('--glow-y', `${y}%`);
   };
 
   const colorScale = useMemo(() => {
@@ -165,6 +166,11 @@ const Heatmap: React.FC<HeatmapProps> = ({
         analyser.getByteFrequencyData(freqData);
         beatPulseRef.current *= 0.92;
         intensity = Number.isFinite(beatPulseRef.current) ? beatPulseRef.current : 0;
+      }
+
+      const glowEl = document.getElementById('beat-glow');
+      if (glowEl) {
+        glowEl.style.opacity = (intensity * 0.85).toFixed(3);
       }
 
       ctx.globalCompositeOperation = 'source-over';
@@ -296,9 +302,6 @@ const Heatmap: React.FC<HeatmapProps> = ({
         id="matrix-capture-card"
         ref={cardRef} 
         className="w-full clay-card p-6 flex flex-col gap-6 relative bg-[#F5F5F5] transition-[box-shadow,border-color] duration-150"
-        style={{
-          '--beat-intensity': beatStyle.intensity
-        } as React.CSSProperties}
       >
         <div className="flex gap-4 items-start w-full">
           <div className="relative flex-shrink-0 group">

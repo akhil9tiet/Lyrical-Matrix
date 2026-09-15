@@ -134,6 +134,7 @@ const zoomScale = isZoomedOut
       className={`zoom-container container mx-auto px-4 pb-12 min-h-screen flex flex-col${mountedRef.current ? ' zoom-transition' : ''}`}
       style={{ transform: zoomTransform }}
     >
+      {isZoomedOut && <div aria-hidden="true" id="beat-glow" />}
       <Header />
       
       <SearchForm
