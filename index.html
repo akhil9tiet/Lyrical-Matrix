@@ -99,6 +99,16 @@
         animation: reveal-card 1s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
       }
 
+      /* Zoom container for infinite canvas effect */
+      .zoom-container {
+        transform-origin: center top;
+        will-change: transform;
+      }
+
+      .zoom-container.zoom-transition {
+        transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
       /* Custom scrollbar for light mode */
       ::-webkit-scrollbar {
         width: 10px;

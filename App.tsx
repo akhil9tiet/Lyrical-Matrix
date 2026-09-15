@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import SearchForm from './components/SearchForm';
 import Heatmap from './components/Heatmap';
@@ -20,9 +20,43 @@ const App: React.FC = () => {
   const [loadingMsg, setLoadingMsg] = useState<string>('');
   const [result, setResult] = useState<LyricsResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [isZoomedOut, setIsZoomedOut] = useState(false);
+  const [zoomOutScale, setZoomOutScale] = useState(0.8);
+  const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const mountedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewport({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (appState !== AppState.SUCCESS || !containerRef.current) return;
+    const el = containerRef.current;
+    const measure = () => {
+      const contentHeight = el.scrollHeight || viewport.height;
+      const target = (viewport.height * 0.9) / contentHeight;
+      setZoomOutScale(Math.min(0.95, Math.max(0.5, target)));
+    };
+    measure();
+    setIsZoomedOut(true);
+  }, [appState, viewport, result]);
+
+  const handleClear = useCallback(() => {
+    setAppState(AppState.IDLE);
+    setResult(null);
+    setErrorMsg('');
+    setIsZoomedOut(false);
   }, []);
 
   const handleSearch = useCallback(async (details: SongDetails) => {
@@ -66,6 +100,7 @@ const App: React.FC = () => {
         previewUrl: itunesData.previewUrl
       });
       setAppState(AppState.SUCCESS);
+      setIsZoomedOut(true);
 
       // Track successful song view in GA4
       trackSongView({
@@ -88,12 +123,22 @@ const App: React.FC = () => {
     }
   }, []);
 
+const zoomScale = isZoomedOut
+    ? zoomOutScale
+    : Math.min(2.2, Math.max(1.15, viewport.height / 520));
+  const zoomTransform = `scale(${zoomScale}) translateY(${isZoomedOut ? '0' : '6%'})`;
+
   return (
-    <div className="container mx-auto px-4 pb-12 min-h-screen flex flex-col">
+    <div 
+      ref={containerRef}
+      className={`zoom-container container mx-auto px-4 pb-12 min-h-screen flex flex-col${mountedRef.current ? ' zoom-transition' : ''}`}
+      style={{ transform: zoomTransform }}
+    >
       <Header />
       
       <SearchForm
         onSearch={handleSearch}
+        onClear={handleClear}
         isLoading={appState === AppState.LOADING}
         showExamples={appState === AppState.IDLE}
       />

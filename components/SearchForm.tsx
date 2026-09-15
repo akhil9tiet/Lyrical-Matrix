@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SongDetails } from '../types';
 import { fetchTopSongs } from '../services/itunesService';
 
 interface SearchFormProps {
   onSearch: (details: SongDetails) => void;
+  onClear: () => void;
   isLoading: boolean;
   showExamples: boolean;
 }
@@ -15,12 +16,13 @@ const FALLBACK_SONGS: SongDetails[] = [
   { songName: 'Espresso', artistName: 'Sabrina Carpenter', isExample: true },
 ];
 
-const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExamples }) => {
+const SearchForm: React.FC<SearchFormProps> = ({ onSearch, onClear, isLoading, showExamples }) => {
   const [songName, setSongName] = useState('');
   const [artistName, setArtistName] = useState('');
   const [titleTouched, setTitleTouched] = useState(false);
   const [exampleSongs, setExampleSongs] = useState(FALLBACK_SONGS);
   const [chartDate, setChartDate] = useState<string | undefined>();
+  const prevSongRef = useRef(songName);
   const hasSongTitle = songName.trim().length > 0;
   const showTitleError = titleTouched && !hasSongTitle;
 
@@ -67,18 +69,20 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExampl
             type="text"
             placeholder="Song name (e.g. Hey Jude)"
             value={songName}
-            onChange={(e) => setSongName(e.target.value)}
+            onChange={(e) => {
+              const newVal = e.target.value;
+              if (prevSongRef.current && !newVal) {
+                onClear();
+              }
+              prevSongRef.current = newVal;
+              setSongName(newVal);
+            }}
             onBlur={() => setTitleTouched(true)}
             className={`w-full clay-inset px-4 py-3 text-sm focus:outline-none placeholder-slate-400 ${showTitleError ? 'border border-red-300' : ''}`}
             aria-invalid={showTitleError}
             aria-describedby={showTitleError ? 'song-title-error' : undefined}
             required
           />
-          {showTitleError && (
-            <p id="song-title-error" className="mt-1 px-2 text-xs font-bold text-red-500">
-              Enter a song title to continue.
-            </p>
-          )}
         </div>
         <input
           type="text"
@@ -102,7 +106,12 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading, showExampl
           )}
         </button>
       </form>
-      {showExamples && (
+      {showTitleError && (
+        <p id="song-title-error" className="mt-3 text-center text-xs font-bold text-red-500">
+          Enter a song title to continue.
+        </p>
+      )}
+      {showExamples && !showTitleError && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2" aria-label="Example songs">
           <span className="px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
             {chartDate ? `Apple Music · ${new Date(chartDate).toLocaleDateString()}` : 'Apple Music · Top songs'}
