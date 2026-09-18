@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://akhil9tiet.github.io/Lyrical-Matrix/sitemap.xml

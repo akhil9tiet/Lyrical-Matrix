@@ -306,7 +306,7 @@ const Heatmap: React.FC<HeatmapProps> = ({
         <div className="flex gap-4 items-start w-full">
           <div className="relative flex-shrink-0 group">
             {coverArt ? (
-              <img src={coverArt} alt="Album Art" className="w-16 h-16 rounded-2xl shadow-xl border-2 border-white object-cover transition-transform group-hover:scale-105" />
+              <img src={coverArt} alt={`${songName || 'Song'} by ${artistName || 'artist'} album artwork`} width={64} height={64} loading="lazy" decoding="async" className="w-16 h-16 rounded-2xl shadow-xl border-2 border-white object-cover transition-transform group-hover:scale-105" />
             ) : (
               <div className="w-16 h-16 rounded-2xl bg-indigo-100 flex items-center justify-center text-indigo-400 border-2 border-white">
                 <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>

@@ -78,7 +78,8 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, onClear, isLoading, s
               setSongName(newVal);
             }}
             onBlur={() => setTitleTouched(true)}
-            className={`w-full clay-inset px-4 py-3 text-sm focus:outline-none placeholder-slate-400 ${showTitleError ? 'border border-red-300' : ''}`}
+            className={`w-full clay-inset px-4 py-3 min-h-[48px] text-sm focus:outline-none placeholder-slate-400 ${showTitleError ? 'border border-red-300' : ''}`}
+            aria-label="Song name"
             aria-invalid={showTitleError}
             aria-describedby={showTitleError ? 'song-title-error' : undefined}
             required
@@ -89,12 +90,13 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, onClear, isLoading, s
           placeholder="Artist (Optional)"
           value={artistName}
           onChange={(e) => setArtistName(e.target.value)}
-          className="flex-1 clay-inset px-4 py-3 text-sm focus:outline-none placeholder-slate-400"
+          className="flex-1 clay-inset px-4 py-3 min-h-[48px] text-sm focus:outline-none placeholder-slate-400"
+          aria-label="Artist (optional)"
         />
         <button
           type="submit"
           disabled={isLoading || !hasSongTitle}
-          className="clay-button px-6 py-3 min-w-[100px] flex items-center justify-center"
+          className="clay-button px-6 py-3 min-h-[48px] min-w-[100px] flex items-center justify-center"
         >
           {isLoading ? (
             <svg className="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -122,7 +124,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ onSearch, onClear, isLoading, s
               type="button"
               onClick={() => handleExampleClick(example)}
               disabled={isLoading}
-              className="clay-button px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              className="clay-button px-3 py-1.5 min-h-[48px] text-xs flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-60"
             >
               {example.songName}
             </button>

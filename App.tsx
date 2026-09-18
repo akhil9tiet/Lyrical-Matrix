@@ -1,6 +1,5 @@
 
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import Header from './components/Header';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import SearchForm from './components/SearchForm';
 import Heatmap from './components/Heatmap';
 import { getLyrics } from './services/lyricsService';
@@ -139,8 +138,7 @@ const isNarrowScreen = viewport.width < 640;
       style={{ transform: zoomTransform }}
     >
       {isZoomedOut && <div aria-hidden="true" id="beat-glow" />}
-      <Header />
-      
+
       <SearchForm
         onSearch={handleSearch}
         onClear={handleClear}

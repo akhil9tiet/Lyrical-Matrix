@@ -3,16 +3,120 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lyrical Heatmap</title>
-    <link rel="icon" href="/fav-icon.ico" type="image/x-icon" />
-    <script src="https://cdn.tailwindcss.com"></script>
+
+    <title>Lyrics Repetition Heatmap Generator | Lyrical Matrix</title>
+    <meta name="description" content="Turn any song into a lyrics repetition heatmap. See which words recur, how often, and where in the song — free, instant, no sign-up." />
+    <meta name="theme-color" content="#F5F5F5" />
+
+    <link rel="canonical" href="https://akhil9tiet.github.io/Lyrical-Matrix/" />
+    <link rel="icon" href="/Lyrical-Matrix/fav-icon.ico" type="image/x-icon" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Lyrical Matrix" />
+    <meta property="og:url" content="https://akhil9tiet.github.io/Lyrical-Matrix/" />
+    <meta property="og:title" content="Lyrics Repetition Heatmap Generator | Lyrical Matrix" />
+    <meta property="og:description" content="Turn any song into a lyrics repetition heatmap. See which words recur, how often, and where in the song — free, instant, no sign-up." />
+    <meta property="og:image" content="https://akhil9tiet.github.io/Lyrical-Matrix/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Lyrical Matrix turns song lyrics into a word-repetition heatmap" />
+    <meta property="og:locale" content="en_US" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lyrics Repetition Heatmap Generator | Lyrical Matrix" />
+    <meta name="twitter:description" content="Turn any song into a lyrics repetition heatmap. See which words recur, how often, and where in the song — free, instant, no sign-up." />
+    <meta name="twitter:image" content="https://akhil9tiet.github.io/Lyrical-Matrix/og-image.png" />
+    <meta name="twitter:image:alt" content="Lyrical Matrix turns song lyrics into a word-repetition heatmap" />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://akhil9tiet.github.io/Lyrical-Matrix/#organization",
+          "name": "Lyrical Matrix",
+          "url": "https://akhil9tiet.github.io/Lyrical-Matrix/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://akhil9tiet.github.io/Lyrical-Matrix/fav-icon.ico"
+          },
+          "sameAs": [
+            "https://github.com/akhil9tiet/Lyrical-Matrix"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://akhil9tiet.github.io/Lyrical-Matrix/#website",
+          "url": "https://akhil9tiet.github.io/Lyrical-Matrix/",
+          "name": "Lyrical Matrix",
+          "description": "Free lyrics repetition heatmap generator. Visualize which words recur in any song and where they appear in the track.",
+          "inLanguage": "en",
+          "publisher": {
+            "@id": "https://akhil9tiet.github.io/Lyrical-Matrix/#organization"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://akhil9tiet.github.io/Lyrical-Matrix/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is a lyrics repetition heatmap?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "A lyrics repetition heatmap shows how often every word in a song recurs and where. Each word is placed once on the horizontal and once on the vertical axis, and a cell is colored in every time two positions in the song contain the same word. Dense colored blocks are repeated words, phrases, or choruses."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which songs can I analyze?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Any song whose lyrics are available through the lyrics.ovh database. You search by song title and optional artist name, and Lyrical Matrix fetches the lyrics plus album artwork and a 30-second audio preview from the iTunes Search API."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I download or share the heatmap?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Every heatmap can be exported as a high-resolution poster image and shared directly to Instagram on mobile or copied to the clipboard on desktop using the Web Share API."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Do you store my songs or lyrics?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No. Lyrics and heatmaps are processed entirely in your browser. Nothing is uploaded or stored on our servers, and you never need an account."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is Lyrical Matrix free to use?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Lyrical Matrix is completely free, open source on GitHub, and there is no sign-up or download required."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
     <style>
       body {
         background-color: #F5F5F5; /* Light Base */
         color: #334155; /* Slate-700 */
         overflow-x: hidden;
       }
-      
+
+      html {
+        overflow-x: clip;
+      }
+
       /* Enhanced Neumorphic/Claymorphism Utilities */
       .clay-card {
         background-color: #F5F5F5;
@@ -138,10 +242,195 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8; 
       }
+
+      /* Static SEO content */
+      .seo-hero {
+        text-align: center;
+        padding: 2rem 1rem 1rem;
+      }
+      .seo-hero h1 {
+        font-size: 2.25rem;
+        line-height: 1.15;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        color: #334155;
+        text-shadow: 0 1px 2px rgba(51, 65, 85, 0.15);
+        margin: 0 0 0.75rem;
+      }
+      .seo-hero .accent { color: #6366f1; }
+      @media (min-width: 768px) {
+        .seo-hero h1 { font-size: 3.75rem; }
+      }
+      .seo-hero .tagline {
+        font-size: 0.875rem;
+        line-height: 1.375;
+        color: #64748b;
+        max-width: 32rem;
+        margin: 0 auto;
+        font-weight: 500;
+      }
+      .seo-hero .intro {
+        font-size: 1rem;
+        line-height: 1.6;
+        color: #475569;
+        max-width: 36rem;
+        margin: 1rem auto 0;
+      }
+
+      .seo-content {
+        max-width: 44rem;
+        margin: 0 auto;
+        padding: 2.5rem 1rem 3rem;
+      }
+      .seo-content section { margin-bottom: 2.5rem; }
+      .seo-content h2 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #334155;
+        margin: 0 0 0.75rem;
+      }
+      .seo-content h3 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #4f46e5;
+        margin: 0 0 0.35rem;
+      }
+      .seo-content p {
+        font-size: 1rem;
+        line-height: 1.65;
+        color: #475569;
+        margin: 0 0 0.75rem;
+      }
+      .seo-content ol, .seo-content ul {
+        margin: 0 0 0.75rem;
+        padding-left: 1.25rem;
+        color: #475569;
+        line-height: 1.65;
+      }
+      .seo-content li { margin-bottom: 0.5rem; }
+      .seo-content li p, .seo-content li h3 { margin-bottom: 0.15rem; }
+      .seo-footer {
+        text-align: center;
+        color: #64748b;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        padding: 1.5rem 1rem 3rem;
+        border-top: 1px solid rgba(148, 163, 184, 0.25);
+      }
+      .seo-footer a { color: #4f46e5; font-weight: 700; text-decoration: none; }
+      .seo-footer a:hover { text-decoration: underline; }
+      .js-only { display: none; }
+      .no-js-note {
+        text-align: center;
+        max-width: 30rem;
+        margin: 1.5rem auto;
+        padding: 1rem 1.25rem;
+        font-size: 0.875rem;
+        color: #64748b;
+        background: #fafaf9;
+        border-radius: 20px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+      }
+      details.faq-item {
+        background: #FAFAF9;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 20px;
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 0.75rem;
+      }
+      details.faq-item summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: #334155;
+      }
+      details.faq-item p {
+        margin: 0.6rem 0 0;
+        font-size: 0.95rem;
+      }
     </style>
-</head>
-  <body class="min-h-screen font-sans antialiased selection:bg-indigo-200 selection:text-indigo-900">
-    <div id="root"></div>
+  </head>
+  <body class="min-h-screen font-sans">
+    <header class="seo-hero">
+      <h1>Lyrical <span class="accent">Matrix</span> — Song Repetition Heatmap</h1>
+      <p class="tagline">Uncover the patterns and structures hidden within your songs.</p>
+      <p class="intro">Lyrical Matrix turns any song into a word-repetition heatmap. Search a track, and it fetches the lyrics automatically, then plots how often every word recurs and where it appears in the song — so you can see the chorus, repeated phrases, and structural DNA of your favorite music at a glance.</p>
+    </header>
+
+    <div id="root">
+      <noscript>
+        <p class="no-js-note">The repetition heatmap generator is interactive and needs JavaScript. The rest of this page works without it.</p>
+      </noscript>
+    </div>
+
+    <main class="seo-content">
+      <section id="how-it-works" aria-labelledby="how-it-works-heading">
+        <h2 id="how-it-works-heading">How Lyrical Matrix works</h2>
+        <p>Analyzing a song takes three steps and a few seconds.</p>
+        <ol>
+          <li>
+            <h3>1. Search a song</h3>
+            <p>Enter the song title and, optionally, the artist name in the box above, or tap one of the example songs to see it in action instantly.</p>
+          </li>
+          <li>
+            <h3>2. We fetch the lyrics</h3>
+            <p>Lyrical Matrix pulls the lyrics from the lyrics.ovh database and album artwork, release year, and a 30-second audio preview from the iTunes Search API.</p>
+          </li>
+          <li>
+            <h3>3. Read the repetition heatmap</h3>
+            <p>The D3-powered matrix places every word once on each axis and colors a cell each time two positions in the song share the same word. Dense colored blocks reveal repeated words and phrases; sparse areas show one-of-a-kind lyrics.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section id="features" aria-labelledby="features-heading">
+        <h2 id="features-heading">What you can do</h2>
+        <ul>
+          <li><strong>Analyze any track</strong> — from chart-topping pop to deep cuts, if the lyrics are public, the heatmap works.</li>
+          <li><strong>Listen while you study</strong> — play the 30-second preview and watch the matrix pulse with the beat.</li>
+          <li><strong>Get word stats</strong> — see total word counts and the rarity of every repeated word.</li>
+          <li><strong>Export a poster</strong> — download the heatmap as a high-resolution image or share it straight to Instagram.</li>
+          <li><strong>Explore freely</strong> — zoom, pan, and compare structural patterns across songs.</li>
+        </ul>
+      </section>
+
+      <section id="what-is-a-repetition-matrix" aria-labelledby="what-is-a-heading">
+        <h2 id="what-is-a-heading">What is a song repetition matrix?</h2>
+        <p>A repetition matrix (also called a self-similarity matrix) is a square grid that shows how often a text repeats itself. In a lyrics version, the song's words run along both the top and the side. Every time two words match, the cell where they cross is filled in — so a chorus that repeats several times draws a dense, recognizable square in the matrix, while a verse of all-new words leaves gray space.</p>
+        <p>The technique became famous through Colin Morris's TEDx talk "Pop Music is Stuck on Repeat" and has been used to show how much of modern pop is built from repeating hooks and phrases. Lyrical Matrix brings that same structural analysis to any song you name.</p>
+      </section>
+
+      <section id="faq" aria-labelledby="faq-heading">
+        <h2 id="faq-heading">Frequently asked questions</h2>
+        <details class="faq-item">
+          <summary>What is a lyrics repetition heatmap?</summary>
+          <p>A lyrics repetition heatmap shows how often every word in a song recurs and where. Each word is placed once on the horizontal and once on the vertical axis, and a cell is colored in every time two positions in the song contain the same word. Dense colored blocks are repeated words, phrases, or choruses.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Which songs can I analyze?</summary>
+          <p>Any song whose lyrics are available through the lyrics.ovh database. You search by song title and optional artist name, and Lyrical Matrix fetches the lyrics plus album artwork and a 30-second audio preview from the iTunes Search API.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Can I download or share the heatmap?</summary>
+          <p>Yes. Every heatmap can be exported as a high-resolution poster image and shared directly to Instagram on mobile or copied to the clipboard on desktop using the Web Share API.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Do you store my songs or lyrics?</summary>
+          <p>No. Lyrics and heatmaps are processed entirely in your browser. Nothing is uploaded or stored on our servers, and you never need an account.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Is Lyrical Matrix free to use?</summary>
+          <p>Yes. Lyrical Matrix is completely free, open source on GitHub, and there is no sign-up or download required.</p>
+        </details>
+      </section>
+    </main>
+
+    <footer class="seo-footer">
+      <p><strong>Lyrical Matrix</strong> — visualize word repetition in song lyrics.</p>
+      <p>Built with React, D3.js, and the lyrics.ovh and iTunes APIs. Inspired by <a href="https://colinmorris.github.io/SongSim/" rel="noopener">Colin Morris's SongSim</a>. Open source on <a href="https://github.com/akhil9tiet/Lyrical-Matrix" rel="noopener">GitHub</a>.</p>
+      <p>&copy; 2026 Lyrical Matrix. All song artworks &amp; lyrics belong to their respective owners.</p>
+    </footer>
+
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
