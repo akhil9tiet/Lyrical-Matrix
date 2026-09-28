@@ -3,6 +3,26 @@ export interface LyricsResponse {
   source: 'api';
 }
 
+const lyricsUrl = (song: string, artist: string): string => {
+  const artistParam = encodeURIComponent(artist || 'unknown');
+  const songParam = encodeURIComponent(song);
+  return `https://api.lyrics.ovh/v1/${artistParam}/${songParam}`;
+};
+
+/**
+ * Checks whether lyrics.ovh actually has an entry for a song.
+ */
+export const hasLyrics = async (song: string, artist: string): Promise<boolean> => {
+  try {
+    const response = await fetch(lyricsUrl(song, artist));
+    if (!response.ok) return false;
+    const data = await response.json();
+    return typeof data?.lyrics === 'string' && data.lyrics.trim().length > 0;
+  } catch (err) {
+    return false;
+  }
+};
+
 /**
  * Fetches lyrics from lyrics.ovh.
  */
@@ -12,13 +32,9 @@ export const getLyrics = async (
   onStatus: (msg: string) => void
 ): Promise<LyricsResponse> => {
   onStatus("Checking primary lyrics database...");
-  
-  const artistParam = encodeURIComponent(artist || 'unknown');
-  const songParam = encodeURIComponent(song);
-  const url = `https://api.lyrics.ovh/v1/${artistParam}/${songParam}`;
-  
+
   try {
-    const response = await fetch(url);
+    const response = await fetch(lyricsUrl(song, artist));
     if (response.ok) {
       const data = await response.json();
       if (data.lyrics) {
